@@ -6,7 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { NameSelector } from '@/components/NameSelector'
 import { WorkDayTable } from '@/components/WorkDayTable'
 import { useUserName } from '@/hooks/useUserName'
-import type { WorkDay } from '@/lib/types'
+import { DEFAULT_CONFIG } from '@/lib/constants'
+import type { WorkDay, WorkDayConfig } from '@/lib/types'
 
 export default function DatePage() {
   const { date } = useParams<{ date: string }>()
@@ -32,9 +33,11 @@ export default function DatePage() {
   }
   if (!workDay) return null
 
+  const config: WorkDayConfig =
+    workDay.config && workDay.config.frames?.length ? workDay.config : DEFAULT_CONFIG
+
   return (
     <main className="px-4 py-5 min-h-screen">
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3 flex-wrap">
           <Link href="/" className="text-gray-400 hover:text-gray-700 text-sm transition-colors">
@@ -51,7 +54,6 @@ export default function DatePage() {
         <NameSelector />
       </div>
 
-      {/* 이름 미설정 시 안내 */}
       {!name ? (
         <div className="py-16 text-center text-gray-400 text-sm">
           먼저 오른쪽 상단에서 이름을 설정해주세요.
@@ -62,6 +64,7 @@ export default function DatePage() {
           r1Name={workDay.r1_name}
           r2Name={workDay.r2_name}
           editorName={name}
+          config={config}
         />
       )}
     </main>

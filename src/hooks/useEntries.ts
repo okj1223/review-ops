@@ -35,12 +35,18 @@ export function useEntries(workDate: string) {
       .channel(`entries_${workDate}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'entries', filter: `work_date=eq.${workDate}` },
+        { event: '*', schema: 'public', table: 'entries' },
         () => fetchEntries()
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    // realtime이 안 올 경우 대비 — 3초 폴링 백업
+    const poll = setInterval(fetchEntries, 3000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(poll)
+    }
   }, [workDate, fetchEntries])
 
   /** 단일 row 저장 (upsert) */
@@ -91,9 +97,9 @@ export function useEntries(workDate: string) {
     const { data, error } = await supabase.from('entries').insert({
       work_date: workDate, episode,
       target: '',
-      r1_result: '', r1_pick: '', r1_place: '',
-      r2_result: '', r2_pick: '', r2_place: '',
-      final_result: '', final_pick: '', final_place: '',
+      r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
+      r2_result: '', r2_pick: '', r2_place: '', r2_frame3: '',
+      final_result: '', final_pick: '', final_place: '', final_frame3: '',
       reason_code: '', reason_detail: '', response_detail: '',
       route: '',
       last_editor: editorName,
@@ -114,9 +120,9 @@ export function useEntries(workDate: string) {
     const rows = episodes.map(episode => ({
       work_date: workDate, episode,
       target: '',
-      r1_result: '', r1_pick: '', r1_place: '',
-      r2_result: '', r2_pick: '', r2_place: '',
-      final_result: '', final_pick: '', final_place: '',
+      r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
+      r2_result: '', r2_pick: '', r2_place: '', r2_frame3: '',
+      final_result: '', final_pick: '', final_place: '', final_frame3: '',
       reason_code: '', reason_detail: '', response_detail: '',
       route: '',
       last_editor: editorName,

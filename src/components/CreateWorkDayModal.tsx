@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAppSettings } from '@/hooks/useAppSettings'
 
 interface Props {
   onClose: () => void
@@ -9,6 +10,7 @@ interface Props {
 
 export function CreateWorkDayModal({ onClose }: Props) {
   const router = useRouter()
+  const { settings } = useAppSettings()
   const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD (서울 로컬 기준)
   const [date, setDate] = useState(today)
   const [r1, setR1] = useState('')
@@ -29,7 +31,7 @@ export function CreateWorkDayModal({ onClose }: Props) {
     setLoading(true)
     const { error: err } = await supabase
       .from('work_days')
-      .insert({ date, r1_name: r1.trim(), r2_name: r2.trim() })
+      .insert({ date, r1_name: r1.trim(), r2_name: r2.trim(), config: settings })
     if (err) {
       setError(err.code === '23505' ? '이미 존재하는 날짜입니다.' : err.message)
       setLoading(false)

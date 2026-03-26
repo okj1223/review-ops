@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { DROPDOWNS } from '@/lib/constants'
 import { computeRow } from '@/lib/logic'
-import type { Entry, EntryWithComputed } from '@/lib/types'
+import { DEFAULT_CONFIG } from '@/lib/constants'
+import type { Entry, EntryWithComputed, WorkDayConfig, FrameKey } from '@/lib/types'
 
 interface Props {
   entry: EntryWithComputed
   workDate: string
   editorName: string
+  config?: WorkDayConfig
   onSave: (
     updates: Partial<EntryWithComputed> & { work_date: string; episode: string },
     originalEpisode?: string
@@ -32,7 +33,6 @@ function getActionStyle(action: string) {
   return 'text-slate-400'
 }
 
-// Result 드롭다운 배경색
 const RESULT_BG: Record<string, string> = {
   Clean: 'text-emerald-700 bg-emerald-50',
   Dirty: 'text-amber-700 bg-amber-50',
@@ -41,8 +41,8 @@ const RESULT_BG: Record<string, string> = {
 }
 
 function ResultSelect({
-  value, onChange, disabled,
-}: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  value, onChange, disabled, options,
+}: { value: string; onChange: (v: string) => void; disabled?: boolean; options: string[] }) {
   return (
     <select
       value={value}
@@ -55,7 +55,7 @@ function ResultSelect({
       ].join(' ')}
     >
       <option value=""></option>
-      {DROPDOWNS.result.map(v => <option key={v}>{v}</option>)}
+      {options.map(v => <option key={v}>{v}</option>)}
     </select>
   )
 }
@@ -63,12 +63,9 @@ function ResultSelect({
 function FrameInput({
   value, onChange, onFocus, onBlur, disabled, placeholder = '—',
 }: {
-  value: string
-  onChange: (v: string) => void
-  onFocus: () => void
-  onBlur: () => void
-  disabled?: boolean
-  placeholder?: string
+  value: string; onChange: (v: string) => void
+  onFocus: () => void; onBlur: () => void
+  disabled?: boolean; placeholder?: string
 }) {
   return (
     <input
@@ -88,14 +85,34 @@ function FrameInput({
   )
 }
 
+function SelectCell({
+  value, onChange, options, disabled, width = 'w-full',
+}: {
+  value: string; onChange: (v: string) => void
+  options: readonly string[]; disabled?: boolean; width?: string
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      className={[
+        `${width} text-xs rounded px-1 py-1 border border-transparent`,
+        'focus:outline-none focus:border-blue-300 focus:bg-blue-50 bg-transparent cursor-pointer transition-colors',
+        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-200',
+      ].join(' ')}
+    >
+      <option value=""></option>
+      {options.map(v => <option key={v}>{v}</option>)}
+    </select>
+  )
+}
+
 function ExpandingTextarea({
   value, onChange, onFocus, onBlur, disabled,
 }: {
-  value: string
-  onChange: (v: string) => void
-  onFocus: () => void
-  onBlur: () => void
-  disabled?: boolean
+  value: string; onChange: (v: string) => void
+  onFocus: () => void; onBlur: () => void; disabled?: boolean
 }) {
   const [focused, setFocused] = useState(false)
   return (
@@ -115,38 +132,11 @@ function ExpandingTextarea({
   )
 }
 
-function SelectCell({
-  value, onChange, options, disabled, width = 'w-full',
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: readonly string[]
-  disabled?: boolean
-  width?: string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      className={[
-        `${width} text-xs rounded px-1 py-1 border border-transparent`,
-        'focus:outline-none focus:border-blue-300 focus:bg-blue-50 bg-transparent cursor-pointer transition-colors',
-        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-200',
-      ].join(' ')}
-    >
-      <option value=""></option>
-      {options.map(v => <option key={v}>{v}</option>)}
-    </select>
-  )
-}
-
-export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, onDelete }: Props) {
+export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete }: Props) {
   const focusedField = useRef<string | null>(null)
-  const [local, setLocal]         = useState(entry)
-  const originalEpisode           = useRef(entry.episode)
+  const [local, setLocal]       = useState(entry)
+  const originalEpisode         = useRef(entry.episode)
 
-  // realtime 업데이트 수신 시 현재 편집 중인 필드만 로컬 유지
   useEffect(() => {
     setLocal(prev =>
       focusedField.current
@@ -167,7 +157,6 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
 
   const handleSelect = (field: keyof EntryWithComputed, value: string) => {
     const raw = { ...local, [field]: value }
-    // conflict/action 즉시 재계산 — realtime 대기 없이 바로 반영
     const updated: EntryWithComputed = { ...raw, ...computeRow(raw as Entry) }
     setLocal(updated)
     save(updated)
@@ -180,9 +169,22 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
     save(local)
   }
 
+  // 동적 프레임 필드 접근 헬퍼
+  const getFrame = (prefix: string, key: string): string =>
+    (local as unknown as Record<string, string>)[`${prefix}_${key}`] ?? ''
+
+  const setFrame = (prefix: string, key: string, value: string) =>
+    setLocal(p => ({ ...p, [`${prefix}_${key}`]: value }))
+
+  // conflict 표시용 레이블 (frame key → config label 매핑)
+  const conflictLabel = (part: string) => {
+    if (part === 'Result') return 'Result'
+    const frame = config.frames.find(f => f.key === part.toLowerCase() as FrameKey)
+    return frame?.label ?? part
+  }
+
   const hasConflict = !!local.conflict
 
-  // 타임스탬프 포맷
   const ts = local.last_updated
     ? new Date(local.last_updated).toLocaleString('ko-KR', {
         month: '2-digit', day: '2-digit',
@@ -199,7 +201,7 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
       hasConflict ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/70',
     ].join(' ')}>
 
-      {/* Controls — 줄 끼워넣기 / 삭제 버튼 */}
+      {/* Controls */}
       <td className="border-r border-slate-100 sticky left-0 z-10 w-8 bg-white group-hover:bg-slate-50 p-0">
         <div className="flex flex-col items-center justify-center h-full w-full">
           <button
@@ -219,7 +221,7 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
         </div>
       </td>
 
-      {/* Episode — sticky */}
+      {/* Episode */}
       <td className={cell('sticky left-8 z-10 bg-white group-hover:bg-slate-50 w-20')}>
         <input
           className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
@@ -230,46 +232,44 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
         />
       </td>
 
-      {/* Action — sticky */}
+      {/* Action */}
       <td className={cell('sticky left-28 z-10 bg-white group-hover:bg-slate-50 min-w-[11rem]')}>
         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${getActionStyle(local.action)}`}>
           {local.action || '—'}
         </span>
       </td>
 
-      {/* R1 그룹 */}
+      {/* R1 Result */}
       <td className={cell('bg-blue-50/50')}>
-        <ResultSelect value={local.r1_result} onChange={v => handleSelect('r1_result', v)} />
+        <ResultSelect value={local.r1_result} onChange={v => handleSelect('r1_result', v)} options={config.dropdowns.result} />
       </td>
-      <td className={cell('bg-blue-50/50')}>
-        <FrameInput value={local.r1_pick}
-          onFocus={() => { focusedField.current = 'r1_pick' }}
-          onChange={v => setLocal(p => ({ ...p, r1_pick: v }))}
-          onBlur={handleTextBlur} />
-      </td>
-      <td className={cell('bg-blue-50/50')}>
-        <FrameInput value={local.r1_place}
-          onFocus={() => { focusedField.current = 'r1_place' }}
-          onChange={v => setLocal(p => ({ ...p, r1_place: v }))}
-          onBlur={handleTextBlur} />
-      </td>
+      {/* R1 frames */}
+      {config.frames.map(frame => (
+        <td key={`r1_${frame.key}`} className={cell('bg-blue-50/50')}>
+          <FrameInput
+            value={getFrame('r1', frame.key)}
+            onFocus={() => { focusedField.current = `r1_${frame.key}` }}
+            onChange={v => setFrame('r1', frame.key, v)}
+            onBlur={handleTextBlur}
+          />
+        </td>
+      ))}
 
-      {/* R2 그룹 */}
+      {/* R2 Result */}
       <td className={cell('bg-emerald-50/50')}>
-        <ResultSelect value={local.r2_result} onChange={v => handleSelect('r2_result', v)} />
+        <ResultSelect value={local.r2_result} onChange={v => handleSelect('r2_result', v)} options={config.dropdowns.result} />
       </td>
-      <td className={cell('bg-emerald-50/50')}>
-        <FrameInput value={local.r2_pick}
-          onFocus={() => { focusedField.current = 'r2_pick' }}
-          onChange={v => setLocal(p => ({ ...p, r2_pick: v }))}
-          onBlur={handleTextBlur} />
-      </td>
-      <td className={cell('bg-emerald-50/50')}>
-        <FrameInput value={local.r2_place}
-          onFocus={() => { focusedField.current = 'r2_place' }}
-          onChange={v => setLocal(p => ({ ...p, r2_place: v }))}
-          onBlur={handleTextBlur} />
-      </td>
+      {/* R2 frames */}
+      {config.frames.map(frame => (
+        <td key={`r2_${frame.key}`} className={cell('bg-emerald-50/50')}>
+          <FrameInput
+            value={getFrame('r2', frame.key)}
+            onFocus={() => { focusedField.current = `r2_${frame.key}` }}
+            onChange={v => setFrame('r2', frame.key, v)}
+            onBlur={handleTextBlur}
+          />
+        </td>
+      ))}
 
       {/* Conflict */}
       <td className={cell('min-w-[7rem]')}>
@@ -277,38 +277,36 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
           <div className="flex flex-col gap-0.5">
             {local.conflict.split(', ').map(c => (
               <span key={c} className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap w-fit">
-                {c}
+                {conflictLabel(c)}
               </span>
             ))}
           </div>
         )}
       </td>
 
-      {/* Final 그룹 — conflict 없으면 비활성 */}
+      {/* Final Result */}
       <td className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
-        <ResultSelect value={local.final_result} onChange={v => handleSelect('final_result', v)} disabled={!hasConflict} />
+        <ResultSelect value={local.final_result} onChange={v => handleSelect('final_result', v)} disabled={!hasConflict} options={config.dropdowns.result} />
       </td>
-      <td className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
-        <FrameInput value={local.final_pick}
-          onFocus={() => { focusedField.current = 'final_pick' }}
-          onChange={v => setLocal(p => ({ ...p, final_pick: v }))}
-          onBlur={handleTextBlur}
-          disabled={!hasConflict} />
-      </td>
-      <td className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
-        <FrameInput value={local.final_place}
-          onFocus={() => { focusedField.current = 'final_place' }}
-          onChange={v => setLocal(p => ({ ...p, final_place: v }))}
-          onBlur={handleTextBlur}
-          disabled={!hasConflict} />
-      </td>
+      {/* Final frames */}
+      {config.frames.map(frame => (
+        <td key={`final_${frame.key}`} className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
+          <FrameInput
+            value={getFrame('final', frame.key)}
+            onFocus={() => { focusedField.current = `final_${frame.key}` }}
+            onChange={v => setFrame('final', frame.key, v)}
+            onBlur={handleTextBlur}
+            disabled={!hasConflict}
+          />
+        </td>
+      ))}
 
       {/* Reason Code */}
       <td className={cell('min-w-[9rem]')}>
         <SelectCell
           value={local.reason_code}
           onChange={v => handleSelect('reason_code', v)}
-          options={DROPDOWNS.reason_code}
+          options={config.dropdowns.reason_code}
           disabled={!hasConflict}
         />
       </td>
@@ -340,7 +338,7 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
         <SelectCell
           value={local.route}
           onChange={v => handleSelect('route', v)}
-          options={DROPDOWNS.route}
+          options={config.dropdowns.route}
           disabled={!hasConflict}
         />
       </td>
