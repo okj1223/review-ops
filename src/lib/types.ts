@@ -17,6 +17,7 @@ export interface WorkDayConfig {
 }
 
 export interface WorkDay {
+  id: string
   date: string
   r1_name: string
   r2_name: string
@@ -27,6 +28,7 @@ export interface WorkDay {
 
 export interface Entry {
   id: string
+  work_day_id: string
   work_date: string
   episode: string
   target: string

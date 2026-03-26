@@ -29,16 +29,18 @@ export function CreateWorkDayModal({ onClose }: Props) {
       return
     }
     setLoading(true)
-    const { error: err } = await supabase
+    const { data: created, error: err } = await supabase
       .from('work_days')
       .insert({ date, r1_name: r1.trim(), r2_name: r2.trim(), config: settings })
+      .select('id')
+      .single()
     if (err) {
-      setError(err.code === '23505' ? '이미 존재하는 날짜입니다.' : err.message)
+      setError(err.code === '23505' ? '같은 날짜에 동일한 검수자 쌍이 이미 존재합니다.' : err.message)
       setLoading(false)
       return
     }
     onClose()
-    router.push(`/${date}`)
+    router.push(`/${created.id}`)
   }
 
   return (

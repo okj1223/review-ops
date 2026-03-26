@@ -20,7 +20,7 @@ export default function HomePage() {
   const [loading, setLoading]           = useState(true)
   const [showModal, setShowModal]       = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [deletingDate, setDeletingDate] = useState<string | null>(null)
+  const [deletingDate, setDeletingDate] = useState<string | null>(null) // stores id
   const [summaries, setSummaries]       = useState<Record<string, Summary>>({})
   const { settings, saveSettings }      = useAppSettings()
 
@@ -89,9 +89,9 @@ export default function HomePage() {
     return () => clearInterval(poll)
   }, [workDays, fetchSummaries])
 
-  const handleDelete = async (date: string) => {
-    await supabase.from('work_days').delete().eq('date', date)
-    setWorkDays(prev => prev.filter(w => w.date !== date))
+  const handleDelete = async (id: string) => {
+    await supabase.from('work_days').delete().eq('id', id)
+    setWorkDays(prev => prev.filter(w => w.id !== id))
     setDeletingDate(null)
   }
 
@@ -220,20 +220,20 @@ export default function HomePage() {
             const sum = summaries[wd.date]
             return (
               <li key={wd.date}>
-                {deletingDate === wd.date ? (
+                {deletingDate === wd.id ? (
                   <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
                     <p className="text-sm text-red-700 font-medium">
                       <span className="font-bold">{wd.date}</span> 삭제할까요? (에피소드 전체 삭제됨)
                     </p>
                     <div className="flex gap-2">
-                      <button onClick={() => handleDelete(wd.date)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors">삭제</button>
+                      <button onClick={() => handleDelete(wd.id)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors">삭제</button>
                       <button onClick={() => setDeletingDate(null)} className="text-xs bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-lg hover:bg-slate-50 transition-colors">취소</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 group">
                     <Link
-                      href={`/${wd.date}`}
+                      href={`/${wd.id}`}
                       className="flex-1 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 hover:shadow-md hover:border-blue-300 transition-all"
                     >
                       <div className="flex flex-col gap-1">
@@ -249,7 +249,7 @@ export default function HomePage() {
                       <span className="text-slate-300 text-lg">›</span>
                     </Link>
                     <button
-                      onClick={() => setDeletingDate(wd.date)}
+                      onClick={() => setDeletingDate(wd.id)}
                       title="작업일 삭제"
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-500 text-lg px-2 py-3"
                     >

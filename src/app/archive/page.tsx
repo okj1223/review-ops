@@ -262,7 +262,7 @@ export default function ArchivePage() {
                 return (
                   <tr key={e.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <Link href={`/${e.work_date}`} className="font-mono text-blue-600 hover:underline">{e.work_date}</Link>
+                      <Link href={`/${e.work_day_id}`} className="font-mono text-blue-600 hover:underline">{e.work_date}</Link>
                     </td>
                     <td className="px-3 py-2 font-mono font-bold text-slate-700 whitespace-nowrap">{e.episode}</td>
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.r1_name}</td>

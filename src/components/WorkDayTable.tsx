@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import type { Entry, EntryWithComputed, WorkDayConfig } from '@/lib/types'
 
 interface Props {
+  workDayId: string
   workDate: string
   r1Name: string
   r2Name: string
@@ -82,8 +83,8 @@ function InsertRow({ totalCols, onConfirm, onCancel }: {
 
 type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 
-export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
-  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow } = useEntries(workDate)
+export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
+  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow } = useEntries(workDayId, workDate)
 
   const [rangeFrom, setRangeFrom]       = useState('')
   const [rangeTo, setRangeTo]           = useState('')
@@ -91,10 +92,14 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
   const [rangeError, setRangeError]     = useState('')
   const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null)
   const [bannerEpisode, setBannerEpisode] = useState<string | null>(initialBannerEpisode)
+  const [filterResults, setFilterResults] = useState<Set<string>>(new Set())
+
+  const toggleFilter = (val: string) =>
+    setFilterResults(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s })
 
   const saveBannerEpisode = async (episode: string | null) => {
     setBannerEpisode(episode)
-    await supabase.from('work_days').update({ cross_banner_episode: episode }).eq('date', workDate)
+    await supabase.from('work_days').update({ cross_banner_episode: episode }).eq('id', workDayId)
   }
 
   const newEpisodeRef = useRef<HTMLInputElement>(null)
@@ -219,8 +224,11 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
     XLSX.writeFile(wb, `${workDate}.xlsx`)
   }
 
-  const manualCrossIdx    = bannerEpisode != null ? entries.findIndex(e => e.episode === bannerEpisode) : -1
-  const crossStartIdx     = manualCrossIdx !== -1 ? manualCrossIdx : findCrossStartIdx(entries)
+  const crossStartIdx     = bannerEpisode != null ? entries.findIndex(e => e.episode === bannerEpisode) : findCrossStartIdx(entries)
+  const crossStartId      = crossStartIdx !== -1 ? entries[crossStartIdx]?.id : null
+  const visibleEntries    = filterResults.size === 0 ? entries : entries.filter(e =>
+    filterResults.has(e.r1_result) || filterResults.has(e.r2_result)
+  )
   const needsActionEntries = entries.filter(e =>
     e.action && e.action !== 'OK' && e.action !== 'Resolved' && e.action !== 'Ready to review'
   )
@@ -291,7 +299,31 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
           {rangeLoading ? '추가 중...' : '일괄 추가'}
         </button>
         {rangeError && <span className="text-xs text-red-500">{rangeError}</span>}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-400 mr-1">필터</span>
+            {config.dropdowns.result.map(val => {
+              const active = filterResults.has(val)
+              const colorMap: Record<string, string> = {
+                Clean: active ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-400' : 'text-emerald-600 hover:bg-emerald-50',
+                Dirty: active ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-400'       : 'text-amber-600 hover:bg-amber-50',
+                Fail:  active ? 'bg-red-100 text-red-700 ring-1 ring-red-400'             : 'text-red-500 hover:bg-red-50',
+                None:  active ? 'bg-slate-200 text-slate-700 ring-1 ring-slate-400'       : 'text-slate-500 hover:bg-slate-100',
+              }
+              return (
+                <button
+                  key={val}
+                  onClick={() => toggleFilter(val)}
+                  className={`text-xs px-2 py-1 rounded-md font-medium transition-colors ${colorMap[val] ?? (active ? 'bg-slate-100' : 'hover:bg-slate-50')}`}
+                >
+                  {val}
+                </button>
+              )
+            })}
+            {filterResults.size > 0 && (
+              <button onClick={() => setFilterResults(new Set())} className="text-xs text-slate-400 hover:text-slate-600 ml-1">✕</button>
+            )}
+          </div>
           <span className="text-xs text-slate-400">에피소드 행 hover → + 버튼으로 사이에 행 삽입</span>
           <button
             onClick={handleExport}
@@ -369,7 +401,7 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry, idx) => (
+              {visibleEntries.map((entry) => (
                 <Fragment key={entry.id}>
                   {insertBeforeId === entry.id && (
                     <InsertRow
@@ -379,7 +411,7 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
                     />
                   )}
 
-                  {crossStartIdx === idx && crossStartIdx !== -1 && (
+                  {crossStartId === entry.id && (
                     <tr>
                       <td colSpan={TOTAL_COLS} className="bg-violet-50 border-y-2 border-violet-300 px-4 py-1.5">
                         <div className="flex items-center gap-2">

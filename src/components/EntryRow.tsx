@@ -40,6 +40,8 @@ const RESULT_BG: Record<string, string> = {
   None:  'text-slate-500 bg-slate-100',
 }
 
+const RESULT_SHORTCUT: Record<string, string> = { c: 'Clean', d: 'Dirty', f: 'Fail', n: 'None' }
+
 function ResultSelect({
   value, onChange, disabled, options,
 }: { value: string; onChange: (v: string) => void; disabled?: boolean; options: string[] }) {
@@ -48,6 +50,14 @@ function ResultSelect({
       value={value}
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
+      onKeyDown={e => {
+        const mapped = RESULT_SHORTCUT[e.key.toLowerCase()]
+        if (mapped && options.includes(mapped)) {
+          e.preventDefault()
+          onChange(mapped)
+          e.currentTarget.blur()
+        }
+      }}
       className={[
         'w-20 text-xs font-medium rounded px-1 py-1 border focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors',
         disabled ? 'opacity-30 cursor-not-allowed bg-transparent border-transparent' : 'border-slate-200',

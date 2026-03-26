@@ -9,8 +9,8 @@ import { useUserName } from '@/hooks/useUserName'
 import { DEFAULT_CONFIG } from '@/lib/constants'
 import type { WorkDay, WorkDayConfig } from '@/lib/types'
 
-export default function DatePage() {
-  const { date } = useParams<{ date: string }>()
+export default function WorkDayPage() {
+  const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { name } = useUserName()
   const [workDay, setWorkDay] = useState<WorkDay | null>(null)
@@ -20,13 +20,13 @@ export default function DatePage() {
     supabase
       .from('work_days')
       .select('*')
-      .eq('date', date)
+      .eq('id', id)
       .single()
       .then(({ data }) => {
         if (!data) router.push('/')
         else { setWorkDay(data as WorkDay); setLoading(false) }
       })
-  }, [date, router])
+  }, [id, router])
 
   if (loading) {
     return <div className="py-16 text-center text-gray-400 text-sm">불러오는 중...</div>
@@ -60,12 +60,13 @@ export default function DatePage() {
         </div>
       ) : (
         <WorkDayTable
-          workDate={date}
+          workDayId={workDay.id}
+          workDate={workDay.date}
           r1Name={workDay.r1_name}
           r2Name={workDay.r2_name}
           editorName={name}
           config={config}
-          initialBannerEpisode={workDay.cross_banner_episode ?? null}
+          initialBannerEpisode={workDay.cross_banner_episode}
         />
       )}
     </main>
