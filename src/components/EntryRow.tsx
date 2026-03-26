@@ -272,11 +272,15 @@ export function EntryRow({ entry, workDate, editorName, onSave, onInsertBefore, 
       </td>
 
       {/* Conflict */}
-      <td className={cell('min-w-[5rem]')}>
+      <td className={cell('min-w-[7rem]')}>
         {local.conflict && (
-          <span className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-            {local.conflict}
-          </span>
+          <div className="flex flex-col gap-0.5">
+            {local.conflict.split(', ').map(c => (
+              <span key={c} className="text-[11px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full whitespace-nowrap w-fit">
+                {c}
+              </span>
+            ))}
+          </div>
         )}
       </td>
 
