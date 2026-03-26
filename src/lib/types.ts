@@ -22,6 +22,7 @@ export interface WorkDay {
   r2_name: string
   created_at: string
   config: WorkDayConfig
+  cross_banner_episode?: string | null
 }
 
 export interface Entry {

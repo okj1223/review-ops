@@ -65,6 +65,7 @@ export default function DatePage() {
           r2Name={workDay.r2_name}
           editorName={name}
           config={config}
+          initialBannerEpisode={workDay.cross_banner_episode ?? null}
         />
       )}
     </main>

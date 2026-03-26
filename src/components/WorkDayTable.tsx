@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { EntryRow } from './EntryRow'
 import { useEntries } from '@/hooks/useEntries'
 import { DEFAULT_CONFIG } from '@/lib/constants'
+import { supabase } from '@/lib/supabase'
 import type { Entry, EntryWithComputed, WorkDayConfig } from '@/lib/types'
 
 interface Props {
@@ -12,14 +13,43 @@ interface Props {
   r2Name: string
   editorName: string
   config?: WorkDayConfig
+  initialBannerEpisode?: string | null
 }
 
 function findCrossStartIdx(entries: EntryWithComputed[]): number {
-  return entries.findIndex(e => {
-    const r1 = !!(e.r1_result || e.r1_pick || e.r1_place || e.r1_frame3)
-    const r2 = !!(e.r2_result || e.r2_pick || e.r2_place || e.r2_frame3)
-    return r1 && r2
-  })
+  let topReviewer: 'r1' | 'r2' | null = null
+  let pureEnd = -1
+
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i]
+    const r1 = !!e.r1_result
+    const r2 = !!e.r2_result
+
+    if (!r1 && !r2) {
+      if (topReviewer === null) continue  // 아직 시작 전 → 건너뜀
+      else break                          // 연속 구간 중 빈 행 → 끊음
+    }
+    if (r1 && r2) break             // 교차 구간 시작, 끊음
+
+    if (r1 && !r2) {
+      if (topReviewer === 'r2') break  // 위에서 r2가 채우던 중 r1 등장 → 끊음
+      topReviewer = 'r1'
+      pureEnd = i
+    } else {
+      if (topReviewer === 'r1') break  // 위에서 r1이 채우던 중 r2 등장 → 끊음
+      topReviewer = 'r2'
+      pureEnd = i
+    }
+  }
+
+  const hasOther = topReviewer === 'r1'
+    ? entries.some(e => !!e.r2_result)
+    : topReviewer === 'r2'
+    ? entries.some(e => !!e.r1_result)
+    : false
+
+  if (pureEnd === -1 || !hasOther) return -1
+  return pureEnd + 1
 }
 
 function InsertRow({ totalCols, onConfirm, onCancel }: {
@@ -52,7 +82,7 @@ function InsertRow({ totalCols, onConfirm, onCancel }: {
 
 type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 
-export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG }: Props) {
+export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
   const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow } = useEntries(workDate)
 
   const [rangeFrom, setRangeFrom]       = useState('')
@@ -60,7 +90,12 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
   const [rangeLoading, setRangeLoading] = useState(false)
   const [rangeError, setRangeError]     = useState('')
   const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null)
-  const [panelExpanded, setPanelExpanded]   = useState(false)
+  const [bannerEpisode, setBannerEpisode] = useState<string | null>(initialBannerEpisode)
+
+  const saveBannerEpisode = async (episode: string | null) => {
+    setBannerEpisode(episode)
+    await supabase.from('work_days').update({ cross_banner_episode: episode }).eq('date', workDate)
+  }
 
   const newEpisodeRef = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
@@ -184,12 +219,11 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
     XLSX.writeFile(wb, `${workDate}.xlsx`)
   }
 
-  const crossStartIdx     = findCrossStartIdx(entries)
+  const manualCrossIdx    = bannerEpisode != null ? entries.findIndex(e => e.episode === bannerEpisode) : -1
+  const crossStartIdx     = manualCrossIdx !== -1 ? manualCrossIdx : findCrossStartIdx(entries)
   const needsActionEntries = entries.filter(e =>
     e.action && e.action !== 'OK' && e.action !== 'Resolved' && e.action !== 'Ready to review'
   )
-  const PANEL_LIMIT = 5
-  const shownEntries = panelExpanded ? needsActionEntries : needsActionEntries.slice(0, PANEL_LIMIT)
 
   // 동적 헤더
   const headers: { label: string; group?: GroupKey; sticky?: boolean; stickyLeft?: string }[] = [
@@ -278,8 +312,8 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
               {needsActionEntries.length}건
             </span>
           </div>
-          <div className="divide-y divide-amber-50">
-            {shownEntries.map(e => {
+          <div className="divide-y divide-amber-50 overflow-y-auto max-h-[160px]">
+            {needsActionEntries.map(e => {
               const isConflict = e.action.startsWith('Conflict')
               const isWaiting  = e.action === 'Waiting Lead'
               const actionCls  = isConflict
@@ -300,16 +334,6 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
               )
             })}
           </div>
-          {needsActionEntries.length > PANEL_LIMIT && (
-            <button
-              onClick={() => setPanelExpanded(p => !p)}
-              className="w-full py-2 text-xs text-amber-600 hover:bg-amber-50 transition-colors border-t border-amber-100"
-            >
-              {panelExpanded
-                ? '▲ 접기'
-                : `▼ 더 보기 (${needsActionEntries.length - PANEL_LIMIT}건 더)`}
-            </button>
-          )}
         </div>
       )}
 
@@ -355,10 +379,31 @@ export function WorkDayTable({ workDate, r1Name, r2Name, editorName, config = DE
                     />
                   )}
 
-                  {crossStartIdx === idx && idx > 0 && (
+                  {crossStartIdx === idx && crossStartIdx !== -1 && (
                     <tr>
                       <td colSpan={TOTAL_COLS} className="bg-violet-50 border-y-2 border-violet-300 px-4 py-1.5">
                         <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => { const ni = crossStartIdx - 1; if (ni >= 0) saveBannerEpisode(entries[ni].episode) }}
+                              disabled={crossStartIdx <= 0}
+                              className="text-violet-400 hover:text-violet-600 disabled:opacity-30 px-1 text-xs"
+                              title="위로 이동"
+                            >▲</button>
+                            <button
+                              onClick={() => { const ni = crossStartIdx + 1; if (ni < entries.length) saveBannerEpisode(entries[ni].episode) }}
+                              disabled={crossStartIdx >= entries.length - 1}
+                              className="text-violet-400 hover:text-violet-600 disabled:opacity-30 px-1 text-xs"
+                              title="아래로 이동"
+                            >▼</button>
+                            {bannerEpisode != null && (
+                              <button
+                                onClick={() => saveBannerEpisode(null)}
+                                className="text-violet-300 hover:text-violet-500 px-1 text-[10px]"
+                                title="자동 계산으로 초기화"
+                              >↺</button>
+                            )}
+                          </div>
                           <span className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">⚑ 교차검수 시작 지점</span>
                           <span className="text-[10px] text-violet-400">— 이 에피소드부터 두 검수자 모두 진행됨</span>
                         </div>

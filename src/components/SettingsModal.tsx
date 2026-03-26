@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { WorkDayConfig, FrameKey } from '@/lib/types'
 
 interface Props {
@@ -8,38 +8,67 @@ interface Props {
   onClose: () => void
 }
 
+const FRAME_KEYS: FrameKey[] = ['pick', 'place', 'frame3']
+
 function TagList({
   items,
   onChange,
+  maxItems,
 }: {
   items: string[]
   onChange: (items: string[]) => void
+  maxItems?: number
 }) {
   const [input, setInput] = useState('')
+  const dragIdx = useRef<number | null>(null)
+
   const add = () => {
     const v = input.trim()
-    if (v && !items.includes(v)) { onChange([...items, v]); setInput('') }
+    if (v && !items.includes(v) && (!maxItems || items.length < maxItems)) {
+      onChange([...items, v]); setInput('')
+    }
   }
+
+  const handleDrop = (toIdx: number) => {
+    if (dragIdx.current === null || dragIdx.current === toIdx) return
+    const next = [...items]
+    const [moved] = next.splice(dragIdx.current, 1)
+    next.splice(toIdx, 0, moved)
+    onChange(next)
+    dragIdx.current = null
+  }
+
+  const canAdd = !maxItems || items.length < maxItems
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1.5">
-        {items.map(item => (
-          <span key={item} className="flex items-center gap-1 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-full">
+        {items.map((item, idx) => (
+          <span
+            key={item}
+            draggable
+            onDragStart={() => { dragIdx.current = idx }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => handleDrop(idx)}
+            className="flex items-center gap-1 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-full cursor-grab active:cursor-grabbing select-none"
+          >
             {item}
-            <button onClick={() => onChange(items.filter(i => i !== item))} className="text-slate-400 hover:text-red-500 leading-none">×</button>
+            <button onClick={() => onChange(items.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 leading-none">×</button>
           </span>
         ))}
       </div>
-      <div className="flex gap-1.5">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="추가 후 Enter"
-          className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-        />
-        <button onClick={add} className="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors">추가</button>
-      </div>
+      {canAdd && (
+        <div className="flex gap-1.5">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && add()}
+            placeholder="추가 후 Enter"
+            className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+          />
+          <button onClick={add} className="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors">추가</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -47,26 +76,13 @@ function TagList({
 export function SettingsModal({ settings, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<WorkDayConfig>(JSON.parse(JSON.stringify(settings)))
   const [tab, setTab] = useState<'dropdowns' | 'frames'>('dropdowns')
-  const [newFrameLabel, setNewFrameLabel] = useState('')
-
-  const hasFrame3 = draft.frames.some(f => f.key === 'frame3')
 
   const updateDropdown = (key: keyof WorkDayConfig['dropdowns'], items: string[]) => {
     setDraft(d => ({ ...d, dropdowns: { ...d.dropdowns, [key]: items } }))
   }
 
-  const updateFrameLabel = (key: FrameKey, label: string) => {
-    setDraft(d => ({ ...d, frames: d.frames.map(f => f.key === key ? { ...f, label } : f) }))
-  }
-
-  const addFrame3 = () => {
-    const label = newFrameLabel.trim() || 'Frame3'
-    setDraft(d => ({ ...d, frames: [...d.frames, { key: 'frame3', label }] }))
-    setNewFrameLabel('')
-  }
-
-  const removeFrame3 = () => {
-    setDraft(d => ({ ...d, frames: d.frames.filter(f => f.key !== 'frame3') }))
+  const updateFrames = (labels: string[]) => {
+    setDraft(d => ({ ...d, frames: labels.map((label, i) => ({ key: FRAME_KEYS[i], label })) }))
   }
 
   const tabCls = (t: string) =>
@@ -104,41 +120,14 @@ export function SettingsModal({ settings, onSave, onClose }: Props) {
           )}
 
           {tab === 'frames' && (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-slate-400">Pick, Place 열 이름 변경 및 3번째 프레임 열 추가/제거</p>
-
-              {draft.frames.map(frame => (
-                <div key={frame.key} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-slate-500 w-14">{frame.key === 'frame3' ? 'Frame3' : frame.key === 'pick' ? 'Pick' : 'Place'}</span>
-                  <input
-                    value={frame.label}
-                    onChange={e => updateFrameLabel(frame.key, e.target.value)}
-                    className="flex-1 border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-                  />
-                  {frame.key === 'frame3' && (
-                    <button onClick={removeFrame3} className="text-slate-300 hover:text-red-500 text-sm font-bold">×</button>
-                  )}
-                </div>
-              ))}
-
-              {!hasFrame3 && (
-                <div className="flex items-center gap-2 border border-dashed border-slate-200 rounded-lg px-3 py-2">
-                  <span className="text-xs text-slate-400 w-14">Frame3</span>
-                  <input
-                    value={newFrameLabel}
-                    onChange={e => setNewFrameLabel(e.target.value)}
-                    placeholder="열 이름 (예: Score)"
-                    className="flex-1 border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-                  />
-                  <button
-                    onClick={addFrame3}
-                    className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded transition-colors"
-                  >
-                    + 추가
-                  </button>
-                </div>
-              )}
-            </div>
+            <section className="flex flex-col gap-2">
+              <p className="text-xs text-slate-400">최대 3개 (Pick · Place · 추가 열). 드래그로 순서 변경.</p>
+              <TagList
+                items={draft.frames.map(f => f.label)}
+                onChange={updateFrames}
+                maxItems={3}
+              />
+            </section>
           )}
         </div>
 
