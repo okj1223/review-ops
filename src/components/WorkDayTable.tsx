@@ -2,6 +2,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { EntryRow } from './EntryRow'
+import { FocusMode } from './FocusMode'
 import { useEntries } from '@/hooks/useEntries'
 import { DEFAULT_CONFIG } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
@@ -53,6 +54,10 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries } = useEntries(workDayId, workDate)
   const [draggedId, setDraggedId]   = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [focusSetup, setFocusSetup] = useState(false)
+  const [focusConfig, setFocusConfig] = useState<{ reviewer: 'r1' | 'r2'; direction: 'down' | 'up' } | null>(null)
+  const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
+  const [focusSetupDir, setFocusSetupDir] = useState<'down' | 'up'>('down')
 
   const [rangeFrom, setRangeFrom]         = useState('')
   const [rangeTo, setRangeTo]             = useState('')
@@ -77,6 +82,16 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const newEpisodeRef = useRef<HTMLInputElement>(null)
   const containerRef  = useRef<HTMLDivElement>(null)
   const mirrorRef     = useRef<HTMLDivElement>(null)
+  const rowRefs       = useRef<Map<string, HTMLTableRowElement>>(new Map())
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  const scrollToEntry = (id: string) => {
+    const el = rowRefs.current.get(id)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedId(id)
+    setTimeout(() => setHighlightedId(null), 1500)
+  }
   const [contentWidth, setContentWidth] = useState(0)
 
   useEffect(() => {
@@ -319,6 +334,74 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
 
   return (
     <div className="flex flex-col gap-3">
+
+      {/* 집중모드 세팅창 */}
+      {focusSetup && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-5">
+            <h2 className="text-base font-bold text-slate-900">집중모드 설정</h2>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">리뷰어</span>
+              <div className="flex gap-2">
+                {(['r1', 'r2'] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setFocusSetupReviewer(r)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${focusSetupReviewer === r ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    {r === 'r1' ? r1Name : r2Name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-slate-500">진행 방향</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFocusSetupDir('down')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${focusSetupDir === 'down' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                >
+                  ↓ 위에서 아래로
+                </button>
+                <button
+                  onClick={() => setFocusSetupDir('up')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${focusSetupDir === 'up' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                >
+                  ↑ 아래에서 위로
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setFocusSetup(false)} className="flex-1 border rounded-lg py-2 text-sm text-slate-600 hover:bg-slate-50">
+                취소
+              </button>
+              <button
+                onClick={() => { setFocusSetup(false); setFocusConfig({ reviewer: focusSetupReviewer, direction: focusSetupDir }) }}
+                className="flex-1 bg-slate-900 text-white rounded-lg py-2 text-sm hover:bg-slate-800"
+              >
+                시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 집중모드 오버레이 */}
+      {focusConfig && (
+        <FocusMode
+          entries={entries}
+          reviewer={focusConfig.reviewer}
+          direction={focusConfig.direction}
+          r1Name={r1Name}
+          r2Name={r2Name}
+          config={config}
+          onSave={e => handleSave(e)}
+          onExit={() => setFocusConfig(null)}
+        />
+      )}
       {/* 범위 일괄 추가 + 범위 삭제 + Excel 다운로드 */}
       <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         {/* 범위 추가 */}
@@ -373,6 +456,12 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
               className="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap"
             >
               ↓ Excel
+            </button>
+            <button
+              onClick={() => setFocusSetup(true)}
+              className="bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap"
+            >
+              ⊙ 집중모드
             </button>
           </div>
         </div>
@@ -463,7 +552,11 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                 ? 'text-violet-700 bg-violet-50 ring-1 ring-violet-200'
                 : 'text-amber-700 bg-amber-50 ring-1 ring-amber-200'
               return (
-                <div key={e.id} className="flex items-center gap-3 px-4 py-2 text-xs hover:bg-amber-50/40 transition-colors">
+                <div
+                  key={e.id}
+                  onClick={() => scrollToEntry(e.id)}
+                  className="flex items-center gap-3 px-4 py-2 text-xs hover:bg-amber-100/60 cursor-pointer transition-colors"
+                >
                   <span className="font-mono font-bold text-slate-700 w-16 shrink-0">Ep. {e.episode}</span>
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${actionCls}`}>
                     {e.action}
@@ -567,6 +660,8 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                     onDrop={() => handleDrop(entry.id)}
                     isDragOver={dragOverId === entry.id}
                     isDragging={draggedId === entry.id}
+                    rowRef={el => { if (el) rowRefs.current.set(entry.id, el); else rowRefs.current.delete(entry.id) }}
+                    isHighlighted={highlightedId === entry.id}
                   />
                 </Fragment>
               ))}

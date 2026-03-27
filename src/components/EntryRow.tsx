@@ -25,6 +25,8 @@ interface Props {
   onDrop: () => void
   isDragOver: boolean
   isDragging: boolean
+  rowRef?: (el: HTMLTableRowElement | null) => void
+  isHighlighted?: boolean
 }
 
 // Action 배지 스타일
@@ -212,7 +214,7 @@ function ExpandingTextarea({
   )
 }
 
-export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging }: Props) {
+export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
   const focusedField = useRef<string | null>(null)
   const [local, setLocal]       = useState(entry)
   const latestLocal             = useRef(entry)   // tracks latest local value synchronously (prevents stale-closure in handleTextBlur)
@@ -286,16 +288,18 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
 
   return (
     <tr
+      ref={rowRef}
       draggable
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
       onDragOver={e => { e.preventDefault(); onDragOver() }}
       onDrop={e => { e.preventDefault(); onDrop() }}
       onDragEnd={() => {}}
       className={[
-        'border-b border-slate-100 group transition-opacity',
+        'border-b border-slate-100 group transition-all',
         hasConflict ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/70',
-        isDragging  ? 'opacity-40' : '',
-        isDragOver  ? 'border-t-2 border-blue-400' : '',
+        isDragging    ? 'opacity-40' : '',
+        isDragOver    ? 'border-t-2 border-blue-400' : '',
+        isHighlighted ? '!bg-amber-100 outline outline-2 outline-amber-400' : '',
       ].join(' ')}
     >
 
