@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { NameSelector } from '@/components/NameSelector'
 import { WorkDayTable } from '@/components/WorkDayTable'
+import { GuideModal } from '@/components/GuideModal'
 import { useUserName } from '@/hooks/useUserName'
 import { DEFAULT_CONFIG } from '@/lib/constants'
 import type { WorkDay, WorkDayConfig } from '@/lib/types'
@@ -15,6 +16,7 @@ export default function WorkDayPage() {
   const { name } = useUserName()
   const [workDay, setWorkDay] = useState<WorkDay | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
     supabase
@@ -51,8 +53,18 @@ export default function WorkDayPage() {
             R2: {workDay.r2_name}
           </span>
         </div>
-        <NameSelector />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowGuide(p => !p)}
+            title="사용 가이드"
+            className={`text-sm px-2 py-1 rounded-lg transition-colors ${showGuide ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+          >
+            ?
+          </button>
+          <NameSelector />
+        </div>
       </div>
+      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
 
       {!name ? (
         <div className="py-16 text-center text-gray-400 text-sm">
