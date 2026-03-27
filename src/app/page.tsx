@@ -47,27 +47,27 @@ export default function HomePage() {
     if (days.length === 0) return
     const { data } = await supabase
       .from('entries')
-      .select('work_date, episode, r1_result, r2_result, r1_pick, r2_pick, r1_place, r2_place, r1_frame3, r2_frame3, final_result, final_pick, final_place, final_frame3, reason_code, route, reason_detail, response_detail, target')
-      .in('work_date', days.map(d => d.date))
+      .select('work_day_id, episode, r1_result, r2_result, r1_pick, r2_pick, r1_place, r2_place, r1_frame3, r2_frame3, final_result, final_pick, final_place, final_frame3, reason_code, route, reason_detail, response_detail, target')
+      .in('work_day_id', days.map(d => d.id))
     if (!data) return
 
-    const byDate: Record<string, Entry[]> = {}
+    const byId: Record<string, Entry[]> = {}
     data.forEach(e => {
-      if (!byDate[e.work_date]) byDate[e.work_date] = []
-      byDate[e.work_date].push(e as Entry)
+      if (!byId[e.work_day_id]) byId[e.work_day_id] = []
+      byId[e.work_day_id].push(e as Entry)
     })
 
     const result: Record<string, Summary> = {}
     days.forEach(wd => {
-      const entries = byDate[wd.date] ?? []
-      if (entries.length === 0) { result[wd.date] = { status: 'not_started', range: '', total: 0, doneCnt: 0 }; return }
+      const entries = byId[wd.id] ?? []
+      if (entries.length === 0) { result[wd.id] = { status: 'not_started', range: '', total: 0, doneCnt: 0 }; return }
       const doneCnt = entries.filter(e => { const { action } = computeRow(e); return action === 'OK' || action === 'Resolved' }).length
       const nums = entries.map(e => parseFloat(e.episode)).filter(n => !isNaN(n))
       const min  = nums.length ? Math.min(...nums) : null
       const max  = nums.length ? Math.max(...nums) : null
       const range = min !== null && max !== null
         ? (min === max ? `Ep. ${min}` : `Ep. ${min} ~ ${max}`) : ''
-      result[wd.date] = { status: doneCnt === entries.length ? 'done' : 'in_progress', range, total: entries.length, doneCnt }
+      result[wd.id] = { status: doneCnt === entries.length ? 'done' : 'in_progress', range, total: entries.length, doneCnt }
     })
     setSummaries(result)
   }, [])
@@ -97,7 +97,7 @@ export default function HomePage() {
 
   const filteredWorkDays = workDays.filter(wd => {
     if (statusFilter !== 'all') {
-      const sum = summaries[wd.date]
+      const sum = summaries[wd.id]
       if (!sum || sum.status !== statusFilter) return false
     }
     if (reviewerFilter) {
@@ -226,7 +226,7 @@ export default function HomePage() {
       ) : (
         <ul className="flex flex-col gap-2">
           {filteredWorkDays.map(wd => {
-            const sum = summaries[wd.date]
+            const sum = summaries[wd.id]
             return (
               <li key={wd.id}>
                 {deletingDate === wd.id ? (
