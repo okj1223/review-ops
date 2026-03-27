@@ -54,6 +54,7 @@ export function CreateWorkDayModal({ onClose }: Props) {
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
             className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
@@ -64,6 +65,7 @@ export function CreateWorkDayModal({ onClose }: Props) {
             type="text"
             value={r1}
             onChange={e => setR1(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
             placeholder="R1 담당자"
             className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
@@ -75,6 +77,7 @@ export function CreateWorkDayModal({ onClose }: Props) {
             type="text"
             value={r2}
             onChange={e => setR2(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
             placeholder="R2 담당자"
             className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           />

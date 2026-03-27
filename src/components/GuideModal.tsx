@@ -67,9 +67,9 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <section>
             <p className="font-semibold text-slate-700 mb-2">교차검수 배너</p>
             <div className="flex flex-col gap-1.5 text-slate-500">
-              <p>R1이 위에서, R2가 아래에서 Result를 채워오면 처음 만나는 지점에 <span className="text-violet-600 font-medium">⚑ 교차검수 시작 지점</span> 배너가 자동 생성됩니다.</p>
-              <p><span className="font-medium text-slate-600">▲▼</span> 버튼으로 배너 위치를 수동 이동 — 이동한 위치는 저장되어 새로고침 후에도 유지됩니다.</p>
-              <p><span className="font-medium text-slate-600">↺</span> 버튼을 누르면 자동 계산 위치로 초기화됩니다.</p>
+              <p>행에 마우스를 올리면 나타나는 <span className="text-violet-600 font-medium">⚑</span> 버튼을 클릭해 교차검수 시작 지점을 수동으로 지정합니다. 같은 버튼을 다시 클릭하면 제거됩니다.</p>
+              <p><span className="font-medium text-slate-600">▲▼</span> 버튼으로 배너 위치를 위아래로 이동할 수 있습니다. 지정된 위치는 저장되어 새로고침 후에도 유지됩니다.</p>
+              <p><span className="font-medium text-slate-600">×</span> 버튼을 누르면 배너를 완전히 제거합니다.</p>
             </div>
           </section>
 

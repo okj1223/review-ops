@@ -9,6 +9,8 @@ interface Props {
   entry: EntryWithComputed
   workDate: string
   editorName: string
+  r1Name: string
+  r2Name: string
   config?: WorkDayConfig
   onSave: (
     updates: Partial<EntryWithComputed> & { work_date: string; episode: string },
@@ -16,6 +18,8 @@ interface Props {
   ) => void
   onInsertBefore: () => void
   onDelete: () => void
+  onSetBanner: () => void
+  isBannerHere: boolean
 }
 
 // Action 배지 스타일
@@ -48,12 +52,16 @@ function ResultSelect({
 }: { value: string; onChange: (v: string) => void; disabled?: boolean; options: string[] }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number; openUp: boolean } | null>(null)
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const btnRef      = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (!btnRef.current?.contains(e.target as Node)) setOpen(false)
+      if (
+        !btnRef.current?.contains(e.target as Node) &&
+        !dropdownRef.current?.contains(e.target as Node)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -85,6 +93,7 @@ function ResultSelect({
         left: pos.left,
         zIndex: 9999,
       }}
+      ref={dropdownRef}
       className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden min-w-[80px]"
     >
       <button onClick={() => { onChange(''); setOpen(false) }}
@@ -198,17 +207,20 @@ function ExpandingTextarea({
   )
 }
 
-export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete }: Props) {
+export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere }: Props) {
   const focusedField = useRef<string | null>(null)
   const [local, setLocal]       = useState(entry)
+  const latestLocal             = useRef(entry)   // tracks latest local value synchronously (prevents stale-closure in handleTextBlur)
   const originalEpisode         = useRef(entry.episode)
 
   useEffect(() => {
-    setLocal(prev =>
-      focusedField.current
+    setLocal(prev => {
+      const next = focusedField.current
         ? { ...entry, [focusedField.current]: prev[focusedField.current as keyof EntryWithComputed] }
         : { ...entry }
-    )
+      if (!focusedField.current) latestLocal.current = next as EntryWithComputed
+      return next
+    })
   }, [entry])
 
   const save = (updated: typeof local) => {
@@ -224,23 +236,29 @@ export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG,
   const handleSelect = (field: keyof EntryWithComputed, value: string) => {
     const raw = { ...local, [field]: value }
     const updated: EntryWithComputed = { ...raw, ...computeRow(raw as Entry) }
+    latestLocal.current = updated
     setLocal(updated)
     save(updated)
   }
 
   const handleTextBlur = () => {
     focusedField.current = null
-    const withComputed: EntryWithComputed = { ...local, ...computeRow(local as Entry) }
+    const latest = latestLocal.current
+    const withComputed: EntryWithComputed = { ...latest, ...computeRow(latest as Entry) }
     setLocal(withComputed)
-    save(local)
+    latestLocal.current = withComputed
+    save(latest)
   }
 
   // 동적 프레임 필드 접근 헬퍼
   const getFrame = (prefix: string, key: string): string =>
     (local as unknown as Record<string, string>)[`${prefix}_${key}`] ?? ''
 
-  const setFrame = (prefix: string, key: string, value: string) =>
-    setLocal(p => ({ ...p, [`${prefix}_${key}`]: value }))
+  const setFrame = (prefix: string, key: string, value: string) => {
+    const field = `${prefix}_${key}`
+    latestLocal.current = { ...latestLocal.current, [field]: value }
+    setLocal(p => ({ ...p, [field]: value }))
+  }
 
   // conflict 표시용 레이블 (frame key → config label 매핑)
   const conflictLabel = (part: string) => {
@@ -278,6 +296,18 @@ export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG,
             +
           </button>
           <button
+            onClick={onSetBanner}
+            title={isBannerHere ? '교차검수 배너 위치 (클릭 시 제거)' : '교차검수 시작 지점으로 설정'}
+            className={[
+              'flex-1 w-full flex items-center justify-center transition-all text-xs leading-none',
+              isBannerHere
+                ? 'text-violet-500 opacity-100'
+                : 'text-slate-300 hover:text-violet-500 opacity-0 group-hover:opacity-100',
+            ].join(' ')}
+          >
+            ⚑
+          </button>
+          <button
             onClick={onDelete}
             title="행 삭제"
             className="flex-1 w-full flex items-center justify-center text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm font-bold leading-none"
@@ -289,13 +319,28 @@ export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG,
 
       {/* Episode */}
       <td className={cell('sticky left-8 z-10 bg-white group-hover:bg-slate-50 w-20')}>
-        <input
-          className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
-          value={local.episode}
-          onFocus={() => { focusedField.current = 'episode' }}
-          onChange={e => setLocal(p => ({ ...p, episode: e.target.value }))}
-          onBlur={handleTextBlur}
-        />
+        <div className="flex flex-col items-start gap-0.5">
+          <input
+            className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
+            value={local.episode}
+            onFocus={() => { focusedField.current = 'episode' }}
+            onChange={e => {
+              latestLocal.current = { ...latestLocal.current, episode: e.target.value }
+              setLocal(p => ({ ...p, episode: e.target.value }))
+            }}
+            onBlur={handleTextBlur}
+          />
+          {local.target && (
+            <span className={[
+              'text-[9px] font-bold px-1.5 py-px rounded-full leading-tight',
+              local.target === r1Name ? 'bg-blue-100 text-blue-600' :
+              local.target === r2Name ? 'bg-emerald-100 text-emerald-600' :
+              'bg-slate-100 text-slate-500',
+            ].join(' ')}>
+              {local.target === r1Name ? 'R1' : local.target === r2Name ? 'R2' : local.target}
+            </span>
+          )}
+        </div>
       </td>
 
       {/* Action */}
@@ -383,7 +428,10 @@ export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG,
           value={local.reason_detail}
           disabled={!hasConflict}
           onFocus={() => { focusedField.current = 'reason_detail' }}
-          onChange={v => setLocal(p => ({ ...p, reason_detail: v }))}
+          onChange={v => {
+            latestLocal.current = { ...latestLocal.current, reason_detail: v }
+            setLocal(p => ({ ...p, reason_detail: v }))
+          }}
           onBlur={handleTextBlur}
         />
       </td>
@@ -394,7 +442,10 @@ export function EntryRow({ entry, workDate, editorName, config = DEFAULT_CONFIG,
           value={local.response_detail}
           disabled={!hasConflict}
           onFocus={() => { focusedField.current = 'response_detail' }}
-          onChange={v => setLocal(p => ({ ...p, response_detail: v }))}
+          onChange={v => {
+            latestLocal.current = { ...latestLocal.current, response_detail: v }
+            setLocal(p => ({ ...p, response_detail: v }))
+          }}
           onBlur={handleTextBlur}
         />
       </td>
