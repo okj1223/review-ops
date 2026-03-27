@@ -25,8 +25,8 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
             <p className="font-semibold text-slate-700 mb-2">기본 작업 흐름</p>
             <ol className="flex flex-col gap-1.5 pl-1">
               {[
-                '새 작업일 생성 — 날짜, R1/R2 이름 설정',
-                '에피소드 범위 추가 — 오퍼레이터 선택 후 시작~끝 번호 입력',
+                '새 작업일 생성 — 날짜, R1/R2 이름 입력 후 Enter 또는 생성 클릭',
+                '에피소드 범위 추가 — 오퍼레이터 선택 후 시작~끝 번호 입력, Enter 또는 일괄 추가 클릭',
                 'R1은 위에서부터, R2는 아래에서부터 Result 입력',
                 '결과가 일치하면 → OK 자동 처리',
                 '결과가 다르면 → Conflict 발생, Final + Reason Code + Route 입력',
@@ -76,13 +76,31 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <div className="w-full h-px bg-slate-100" />
 
           <section>
-            <p className="font-semibold text-slate-700 mb-2">Result 입력 단축키</p>
-            <p className="text-slate-500 mb-2">Result 셀을 클릭한 후 키를 누르면 즉시 입력됩니다.</p>
-            <div className="flex gap-3 flex-wrap">
+            <p className="font-semibold text-slate-700 mb-2">키보드 단축키</p>
+            <p className="text-slate-500 mb-1.5">Result 셀 포커스 중</p>
+            <div className="flex gap-3 flex-wrap mb-3">
               {[['C', 'Clean'], ['D', 'Dirty'], ['F', 'Fail'], ['N', 'None']].map(([key, val]) => (
                 <div key={key} className="flex items-center gap-1.5">
                   <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-300 rounded text-[11px] font-mono font-bold text-slate-700 shadow-sm">{key}</kbd>
                   <span className="text-slate-500">{val}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-slate-500 mb-1.5">전역</p>
+            <div className="flex flex-col gap-1.5">
+              {[
+                [['Ctrl', 'Z'], '내 변경 한 단계 되돌리기'],
+                [['Enter'], '숫자 입력 필드에서 일괄 추가 / 범위 삭제 실행'],
+                [['Enter'], '새 작업일 생성 모달에서 생성 실행'],
+                [['Esc'], '모달 / 드롭다운 닫기'],
+              ].map(([keys, desc], i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {(keys as string[]).map((k, j) => (
+                      <kbd key={j} className="px-1.5 py-0.5 bg-slate-50 border border-slate-300 rounded text-[11px] font-mono font-bold text-slate-700 shadow-sm">{k}</kbd>
+                    ))}
+                  </div>
+                  <span className="text-slate-500">{desc as string}</span>
                 </div>
               ))}
             </div>
