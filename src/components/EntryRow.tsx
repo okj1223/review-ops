@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { computeRow } from '@/lib/logic'
 import { DEFAULT_CONFIG } from '@/lib/constants'
 import type { Entry, EntryWithComputed, WorkDayConfig, FrameKey } from '@/lib/types'
@@ -45,28 +46,83 @@ const RESULT_SHORTCUT: Record<string, string> = { c: 'Clean', d: 'Dirty', f: 'Fa
 function ResultSelect({
   value, onChange, disabled, options,
 }: { value: string; onChange: (v: string) => void; disabled?: boolean; options: string[] }) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      onKeyDown={e => {
-        const mapped = RESULT_SHORTCUT[e.key.toLowerCase()]
-        if (mapped && options.includes(mapped)) {
-          e.preventDefault()
-          onChange(mapped)
-          e.currentTarget.blur()
-        }
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number; openUp: boolean } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (!btnRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const handleOpen = () => {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - r.bottom
+    const openUp = spaceBelow < 160
+    setPos({ top: openUp ? r.top : r.bottom, left: r.left, openUp })
+    setOpen(p => !p)
+  }
+
+  if (disabled) {
+    return (
+      <span className={['w-20 inline-block text-xs font-medium rounded px-1 py-1 opacity-30', value ? RESULT_BG[value] ?? '' : ''].join(' ')}>
+        {value || ''}
+      </span>
+    )
+  }
+
+  const dropdown = open && pos && createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        top: pos.openUp ? undefined : pos.top + 2,
+        bottom: pos.openUp ? window.innerHeight - pos.top + 2 : undefined,
+        left: pos.left,
+        zIndex: 9999,
       }}
-      className={[
-        'w-20 text-xs font-medium rounded px-1 py-1 border focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors',
-        disabled ? 'opacity-30 cursor-not-allowed bg-transparent border-transparent' : 'border-slate-200',
-        !disabled && value ? RESULT_BG[value] ?? '' : '',
-      ].join(' ')}
+      className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden min-w-[80px]"
     >
-      <option value=""></option>
-      {options.map(v => <option key={v}>{v}</option>)}
-    </select>
+      <button onClick={() => { onChange(''); setOpen(false) }}
+        className="w-full text-left px-2 py-1 text-xs text-slate-400 hover:bg-slate-50">—</button>
+      {options.map(v => (
+        <button key={v} onClick={() => { onChange(v); setOpen(false) }}
+          className={`w-full text-left px-2 py-1 text-xs font-medium hover:brightness-95 ${RESULT_BG[v] ?? ''}`}>
+          {v}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+
+  return (
+    <div className="relative w-20">
+      <button
+        ref={btnRef}
+        tabIndex={0}
+        onClick={handleOpen}
+        onKeyDown={e => {
+          const mapped = RESULT_SHORTCUT[e.key.toLowerCase()]
+          if (mapped && options.includes(mapped)) {
+            e.preventDefault()
+            onChange(mapped)
+            setOpen(false)
+          }
+          if (e.key === 'Escape') setOpen(false)
+        }}
+        className={[
+          'w-full text-left text-xs font-medium rounded px-1 py-1 border focus:outline-none focus:ring-1 focus:ring-blue-400 transition-colors',
+          value ? RESULT_BG[value] ?? 'border-slate-200' : 'border-slate-200 text-slate-300',
+        ].join(' ')}
+      >
+        {value || '—'}
+      </button>
+      {dropdown}
+    </div>
   )
 }
 

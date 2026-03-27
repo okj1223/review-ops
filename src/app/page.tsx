@@ -24,6 +24,7 @@ export default function HomePage() {
   const [summaries, setSummaries]       = useState<Record<string, Summary>>({})
   const { settings, saveSettings }      = useAppSettings()
 
+  const [showGuide, setShowGuide]       = useState(false)
   const [sortAsc, setSortAsc]           = useState(false)
   const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'in_progress'>('all')
   const [reviewerFilter, setReviewerFilter] = useState('')
@@ -131,6 +132,13 @@ export default function HomePage() {
             전체 보관함
           </Link>
           <button
+            onClick={() => setShowGuide(p => !p)}
+            title="사용 가이드"
+            className={`text-sm px-2 py-1 rounded-lg transition-colors ${showGuide ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+          >
+            ?
+          </button>
+          <button
             onClick={() => setShowSettings(true)}
             title="설정"
             className="text-slate-400 hover:text-slate-600 text-lg px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
@@ -140,6 +148,102 @@ export default function HomePage() {
           <NameSelector />
         </div>
       </div>
+
+      {showGuide && (
+        <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs text-slate-600">
+          <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between">
+            <span className="font-bold text-slate-800 text-sm">사용 가이드</span>
+            <button onClick={() => setShowGuide(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+          </div>
+
+          <div className="p-4 flex flex-col gap-4">
+
+            {/* 기본 프로세스 */}
+            <section>
+              <p className="font-semibold text-slate-700 mb-2">기본 작업 흐름</p>
+              <ol className="flex flex-col gap-1 pl-1">
+                {[
+                  '새 작업일 생성 — 날짜, R1/R2 이름 설정',
+                  '에피소드 범위 추가 — 오퍼레이터 선택 후 시작~끝 번호 입력',
+                  'R1은 위에서부터, R2는 아래에서부터 Result 입력',
+                  '결과가 일치하면 → OK 자동 처리',
+                  '결과가 다르면 → Conflict 발생, Final + Reason Code + Route 입력',
+                  'Final까지 입력 완료되면 → Resolved',
+                  '모든 에피소드가 OK 또는 Resolved가 되면 작업일 완료 처리',
+                ].map((s, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-slate-400 shrink-0">{i + 1}.</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <div className="w-full h-px bg-slate-200" />
+
+            {/* Action 상태 */}
+            <section>
+              <p className="font-semibold text-slate-700 mb-2">Action 상태 기준</p>
+              <div className="flex flex-col gap-1">
+                {[
+                  { label: 'Ready to review',  desc: '아직 아무도 입력하지 않음',                            cls: 'text-slate-400' },
+                  { label: 'OK',               desc: 'R1과 R2 결과가 완전히 일치',                         cls: 'text-emerald-600 font-medium' },
+                  { label: 'Conflict | Need …', desc: '결과가 달라 Final / Reason Code / Route 입력 필요',   cls: 'text-red-500 font-medium' },
+                  { label: 'Resolved',          desc: 'Conflict 해소 완료 (Final + Reason + Route 모두 입력)', cls: 'text-blue-600 font-medium' },
+                  { label: 'Waiting Lead',      desc: 'Route를 Waiting Lead로 설정한 보류 상태',             cls: 'text-violet-600 font-medium' },
+                  { label: 'Need R1/R2 Result', desc: '일부 필드를 입력했지만 Result가 빠져 있음',            cls: 'text-amber-600 font-medium' },
+                ].map(({ label, desc, cls }) => (
+                  <div key={label} className="flex gap-2">
+                    <span className={`w-40 shrink-0 ${cls}`}>{label}</span>
+                    <span className="text-slate-500">{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div className="w-full h-px bg-slate-200" />
+
+            {/* 교차검수 배너 */}
+            <section>
+              <p className="font-semibold text-slate-700 mb-2">교차검수 배너</p>
+              <div className="flex flex-col gap-1 text-slate-500">
+                <p>R1이 위에서, R2가 아래에서 Result를 채워오면 처음 만나는 지점에 <span className="text-violet-600 font-medium">⚑ 교차검수 시작 지점</span> 배너가 자동 생성됩니다.</p>
+                <p className="mt-1"><span className="font-medium text-slate-600">▲▼</span> 버튼으로 배너 위치를 수동 이동할 수 있으며, 이동한 위치는 저장되어 새로고침 후에도 유지됩니다.</p>
+                <p><span className="font-medium text-slate-600">↺</span> 버튼을 누르면 자동 계산 위치로 초기화됩니다.</p>
+              </div>
+            </section>
+
+            <div className="w-full h-px bg-slate-200" />
+
+            {/* 단축키 */}
+            <section>
+              <p className="font-semibold text-slate-700 mb-2">Result 입력 단축키</p>
+              <p className="text-slate-500 mb-2">Result 셀을 클릭한 후 키를 누르면 즉시 입력됩니다.</p>
+              <div className="flex gap-4">
+                {[['C', 'Clean'], ['D', 'Dirty'], ['F', 'Fail'], ['N', 'None']].map(([key, val]) => (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[11px] font-mono font-bold text-slate-700 shadow-sm">{key}</kbd>
+                    <span className="text-slate-500">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div className="w-full h-px bg-slate-200" />
+
+            {/* 전체 보관함 */}
+            <section>
+              <p className="font-semibold text-slate-700 mb-2">전체 보관함 필터</p>
+              <div className="flex flex-col gap-1 text-slate-500">
+                <p>Conflict / Action / Result 각 항목 내에서는 <span className="font-medium text-slate-600">OR</span> 다중 선택이 가능합니다.</p>
+                <p>항목들 사이는 <span className="font-medium text-slate-600">AND</span>로 결합됩니다. (예: Conflict=있음 AND Result=Dirty)</p>
+                <p className="mt-1">Result 필터 기준: R1·R2 모두 입력된 경우 <span className="font-medium text-slate-600">Final Result</span> 값 기준, 한 명만 입력된 경우 해당 값 기준입니다.</p>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">작업일</h2>
