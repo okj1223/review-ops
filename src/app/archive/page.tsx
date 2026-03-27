@@ -43,9 +43,8 @@ function MultiPillGroup({ label, options, selected, onToggle, onClear }: {
 }
 
 export default function ArchivePage() {
-  const [entries, setEntries]   = useState<EntryWithNames[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [hitLimit, setHitLimit] = useState(false)
+  const [entries, setEntries] = useState<EntryWithNames[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [episodeSearch, setEpisodeSearch]   = useState('')
   const [reviewerFilter, setReviewerFilter] = useState('')
@@ -70,15 +69,12 @@ export default function ArchivePage() {
     const nameMap: Record<string, { r1_name: string; r2_name: string }> = {}
     wdData.forEach(w => { nameMap[w.date] = { r1_name: w.r1_name, r2_name: w.r2_name } })
 
-    const LIMIT = 1000
     const { data: entryData } = await supabase
       .from('entries').select('*')
       .in('work_date', wdData.map(w => w.date))
       .order('work_date', { ascending: false })
-      .limit(LIMIT)
 
     if (!entryData) { setLoading(false); return }
-    setHitLimit(entryData.length >= LIMIT)
     setEntries(
       entryData.map(e => ({
         ...(e as Entry),
@@ -161,7 +157,7 @@ export default function ArchivePage() {
           disabled={loading || filtered.length === 0}
           className="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
         >
-          ↓ Excel
+          ↓ Excel {!loading && filtered.length > 0 && `(${filtered.length.toLocaleString()}건)`}
         </button>
       </div>
 
@@ -191,12 +187,7 @@ export default function ArchivePage() {
             <button onClick={() => { setDateFrom(TWO_WEEKS); setDateTo(TODAY) }} className="text-[10px] text-blue-500 hover:text-blue-700">초기화</button>
           )}
           <span className="ml-auto text-[10px] text-slate-400">
-            {loading ? '로딩 중...' : (
-              <>
-                {filtered.length.toLocaleString()}건
-                {hitLimit && <span className="text-amber-500 ml-1">(최대 1,000건 — 날짜 범위를 좁혀보세요)</span>}
-              </>
-            )}
+            {loading ? '로딩 중...' : `${filtered.length.toLocaleString()}건`}
           </span>
         </div>
 

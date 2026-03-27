@@ -5,6 +5,7 @@ import { computeRow } from '@/lib/logic'
 import type { Entry, EntryWithComputed } from '@/lib/types'
 
 function episodeSort(a: Entry, b: Entry): number {
+  if (a.sort_order != null && b.sort_order != null) return a.sort_order - b.sort_order
   const na = parseFloat(a.episode)
   const nb = parseFloat(b.episode)
   if (!isNaN(na) && !isNaN(nb)) return na - nb
@@ -140,5 +141,15 @@ export function useEntries(workDayId: string, workDate: string) {
     return toDelete.length
   }
 
-  return { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows }
+  const reorderEntries = async (orderedIds: string[]) => {
+    setEntries(prev => {
+      const map = new Map(prev.map(e => [e.id, e]))
+      return orderedIds.map((id, i) => ({ ...map.get(id)!, sort_order: i })).filter(Boolean) as EntryWithComputed[]
+    })
+    await Promise.all(
+      orderedIds.map((id, i) => supabase.from('entries').update({ sort_order: i }).eq('id', id))
+    )
+  }
+
+  return { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries }
 }

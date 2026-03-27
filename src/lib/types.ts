@@ -24,6 +24,7 @@ export interface WorkDay {
   created_at: string
   config: WorkDayConfig
   cross_banner_episode?: string | null
+  completed_at?: string | null
 }
 
 export interface Entry {
@@ -32,6 +33,7 @@ export interface Entry {
   work_date: string
   episode: string
   target: string
+  sort_order?: number | null
   r1_result: string
   r1_pick: string
   r1_place: string

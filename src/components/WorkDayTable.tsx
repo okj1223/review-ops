@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { EntryRow } from './EntryRow'
 import { useEntries } from '@/hooks/useEntries'
@@ -50,7 +50,9 @@ type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 type HistoryItem = { prev: Entry; editor: string }
 
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
-  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows } = useEntries(workDayId, workDate)
+  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries } = useEntries(workDayId, workDate)
+  const [draggedId, setDraggedId]   = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const [rangeFrom, setRangeFrom]         = useState('')
   const [rangeTo, setRangeTo]             = useState('')
@@ -250,6 +252,28 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     XLSX.writeFile(wb, `${workDate}.xlsx`)
   }
 
+  const stats = useMemo(() => ({
+    total:    entries.length,
+    ok:       entries.filter(e => e.action === 'OK').length,
+    resolved: entries.filter(e => e.action === 'Resolved').length,
+    waiting:  entries.filter(e => e.action === 'Waiting Lead').length,
+    conflict: entries.filter(e => e.conflict && e.action !== 'Resolved' && e.action !== 'Waiting Lead').length,
+  }), [entries])
+
+  const handleDragStart = (id: string) => setDraggedId(id)
+  const handleDragOver  = (id: string) => { if (id !== draggedId) setDragOverId(id) }
+  const handleDrop      = async (targetId: string) => {
+    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return }
+    const ids     = entries.map(e => e.id)
+    const fromIdx = ids.indexOf(draggedId)
+    const toIdx   = ids.indexOf(targetId)
+    const newOrder = [...ids]
+    newOrder.splice(fromIdx, 1)
+    newOrder.splice(toIdx, 0, draggedId)
+    setDraggedId(null); setDragOverId(null)
+    await reorderEntries(newOrder)
+  }
+
   const crossStartIdx     = bannerEpisode != null ? entries.findIndex(e => e.episode === bannerEpisode) : -1
   const crossStartId      = crossStartIdx !== -1 ? entries[crossStartIdx]?.id : null
   const needsActionEntries = entries.filter(e =>
@@ -402,6 +426,23 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
         </div>
       </div>
 
+      {/* 통계 요약 패널 */}
+      {entries.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm flex items-center gap-1 flex-wrap text-xs">
+          <span className="text-slate-400 font-medium mr-1">전체 {stats.total}</span>
+          <span className="text-slate-200">|</span>
+          <span className="text-emerald-600 font-semibold">OK {stats.ok}</span>
+          <span className="text-slate-200">|</span>
+          <span className="text-red-500 font-semibold">Conflict {stats.conflict}</span>
+          <span className="text-slate-200">|</span>
+          <span className="text-blue-600 font-semibold">Resolved {stats.resolved}</span>
+          {stats.waiting > 0 && (<>
+            <span className="text-slate-200">|</span>
+            <span className="text-violet-600 font-semibold">Waiting {stats.waiting}</span>
+          </>)}
+        </div>
+      )}
+
       {/* 처리 필요 패널 */}
       {needsActionEntries.length > 0 && (
         <div className="bg-white border border-amber-200 rounded-xl shadow-sm overflow-hidden">
@@ -521,6 +562,11 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                     onDelete={() => deleteRow(entry.id)}
                     onSetBanner={() => bannerEpisode === entry.episode ? saveBannerEpisode(null) : saveBannerEpisode(entry.episode)}
                     isBannerHere={bannerEpisode === entry.episode}
+                    onDragStart={() => handleDragStart(entry.id)}
+                    onDragOver={() => handleDragOver(entry.id)}
+                    onDrop={() => handleDrop(entry.id)}
+                    isDragOver={dragOverId === entry.id}
+                    isDragging={draggedId === entry.id}
                   />
                 </Fragment>
               ))}

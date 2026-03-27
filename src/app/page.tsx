@@ -11,7 +11,7 @@ import { useAppSettings } from '@/hooks/useAppSettings'
 import type { WorkDay, Entry } from '@/lib/types'
 
 type Status = 'done' | 'in_progress' | 'not_started'
-interface Summary { status: Status; range: string }
+interface Summary { status: Status; range: string; total: number; doneCnt: number }
 
 const TODAY       = new Date().toISOString().slice(0, 10)
 const TWO_WEEKS   = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
@@ -60,17 +60,14 @@ export default function HomePage() {
     const result: Record<string, Summary> = {}
     days.forEach(wd => {
       const entries = byDate[wd.date] ?? []
-      if (entries.length === 0) { result[wd.date] = { status: 'not_started', range: '' }; return }
-      const allDone = entries.every(e => {
-        const { action } = computeRow(e)
-        return action === 'OK' || action === 'Resolved'
-      })
+      if (entries.length === 0) { result[wd.date] = { status: 'not_started', range: '', total: 0, doneCnt: 0 }; return }
+      const doneCnt = entries.filter(e => { const { action } = computeRow(e); return action === 'OK' || action === 'Resolved' }).length
       const nums = entries.map(e => parseFloat(e.episode)).filter(n => !isNaN(n))
       const min  = nums.length ? Math.min(...nums) : null
       const max  = nums.length ? Math.max(...nums) : null
       const range = min !== null && max !== null
         ? (min === max ? `Ep. ${min}` : `Ep. ${min} ~ ${max}`) : ''
-      result[wd.date] = { status: allDone ? 'done' : 'in_progress', range }
+      result[wd.date] = { status: doneCnt === entries.length ? 'done' : 'in_progress', range, total: entries.length, doneCnt }
     })
     setSummaries(result)
   }, [])
@@ -96,6 +93,7 @@ export default function HomePage() {
     setWorkDays(prev => prev.filter(w => w.id !== id))
     setDeletingDate(null)
   }
+
 
   const filteredWorkDays = workDays.filter(wd => {
     if (statusFilter !== 'all') {
@@ -247,17 +245,33 @@ export default function HomePage() {
                       href={`/${wd.id}`}
                       className="flex-1 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 hover:shadow-md hover:border-blue-300 transition-all"
                     >
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1.5 w-full">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-slate-900">{wd.date}</p>
                           {sum && <StatusBadge status={sum.status} />}
+                          {wd.completed_at && (
+                            <span className="text-[10px] text-emerald-600 font-medium">
+                              ✓ {new Date(wd.completed_at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })} 완료
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="text-xs text-slate-400">R1: {wd.r1_name} · R2: {wd.r2_name}</p>
                           {sum?.range && <span className="text-[10px] text-slate-400 font-mono">{sum.range}</span>}
                         </div>
+                        {sum && sum.total > 0 && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-400 rounded-full transition-all"
+                                style={{ width: `${Math.round(sum.doneCnt / sum.total * 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0">{sum.doneCnt}/{sum.total}</span>
+                          </div>
+                        )}
                       </div>
-                      <span className="text-slate-300 text-lg">›</span>
+                      <span className="text-slate-300 text-lg ml-3">›</span>
                     </Link>
                     <button
                       onClick={() => setDeletingDate(wd.id)}
