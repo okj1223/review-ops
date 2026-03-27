@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
@@ -7,40 +7,36 @@ import { computeRow } from '@/lib/logic'
 import type { Entry, EntryWithComputed } from '@/lib/types'
 
 type EntryWithNames = EntryWithComputed & { r1_name: string; r2_name: string }
-type ConflictFilter = 'all' | 'yes' | 'no'
-type ActionFilter   = 'all' | 'ok' | 'resolved' | 'waiting' | 'processing'
+
+function effectiveResult(e: EntryWithNames): string {
+  if (e.r1_result && e.r2_result) return e.final_result   // 둘 다 있으면 파이널
+  return e.r1_result || e.r2_result                        // 한 명만 있으면 그 값
+}
 
 const TODAY     = new Date().toISOString().slice(0, 10)
 const TWO_WEEKS = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)
 
-function PillGroup<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
+function MultiPillGroup({ label, options, selected, onToggle, onClear }: {
   label: string
-  options: { key: T; label: string }[]
-  value: T
-  onChange: (v: T) => void
+  options: { key: string; label: string }[]
+  selected: Set<string>
+  onToggle: (key: string) => void
+  onClear: () => void
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-16 shrink-0">{label}</span>
       <div className="flex gap-1 flex-wrap">
         {options.map(o => (
-          <button
-            key={o.key}
-            onClick={() => onChange(o.key)}
+          <button key={o.key} onClick={() => onToggle(o.key)}
             className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
-              value === o.key
-                ? 'bg-slate-800 text-white'
-                : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
+              selected.has(o.key) ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
             }`}
-          >
-            {o.label}
-          </button>
+          >{o.label}</button>
         ))}
+        {selected.size > 0 && (
+          <button onClick={onClear} className="px-2.5 py-1 text-xs rounded-full font-medium bg-white border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">전체</button>
+        )}
       </div>
     </div>
   )
@@ -55,9 +51,12 @@ export default function ArchivePage() {
   const [reviewerFilter, setReviewerFilter] = useState('')
   const [dateFrom, setDateFrom]             = useState(TWO_WEEKS)
   const [dateTo, setDateTo]                 = useState(TODAY)
-  const [conflictFilter, setConflictFilter] = useState<ConflictFilter>('all')
-  const [actionFilter, setActionFilter]     = useState<ActionFilter>('all')
-  const [resultFilter, setResultFilter]     = useState('all')
+  const [conflictFilter, setConflictFilter] = useState<Set<string>>(new Set())
+  const [actionFilter, setActionFilter]     = useState<Set<string>>(new Set())
+  const [resultFilter, setResultFilter]     = useState<Set<string>>(new Set())
+
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (val: string) =>
+    setter(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -93,17 +92,11 @@ export default function ArchivePage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Result 옵션 동적 도출
+  // Result 옵션 동적 도출 (effectiveResult 기준)
   const resultOptions = useMemo(() => {
     const vals = new Set<string>()
-    entries.forEach(e => {
-      if (e.r1_result) vals.add(e.r1_result)
-      if (e.r2_result) vals.add(e.r2_result)
-    })
-    return [
-      { key: 'all', label: '전체' },
-      ...Array.from(vals).sort().map(v => ({ key: v, label: v })),
-    ]
+    entries.forEach(e => { const r = effectiveResult(e); if (r) vals.add(r) })
+    return Array.from(vals).sort()
   }, [entries])
 
   const filtered = useMemo(() => {
@@ -113,18 +106,22 @@ export default function ArchivePage() {
         const rf = reviewerFilter.toLowerCase()
         if (!e.r1_name.toLowerCase().includes(rf) && !e.r2_name.toLowerCase().includes(rf)) return false
       }
-      // Conflict (AND)
-      if (conflictFilter === 'yes' && !e.conflict)  return false
-      if (conflictFilter === 'no'  &&  e.conflict)  return false
-      // Action (AND)
-      if (actionFilter === 'ok'         && e.action !== 'OK')           return false
-      if (actionFilter === 'resolved'   && e.action !== 'Resolved')     return false
-      if (actionFilter === 'waiting'    && e.action !== 'Waiting Lead') return false
-      if (actionFilter === 'processing' &&
-          (e.action === 'OK' || e.action === 'Resolved' || e.action === 'Ready to review' || !e.action))
-        return false
-      // Result (AND) — R1 또는 R2 결과에 포함
-      if (resultFilter !== 'all' && e.r1_result !== resultFilter && e.r2_result !== resultFilter) return false
+      // Conflict — OR within, AND with others
+      if (conflictFilter.size > 0) {
+        const has = conflictFilter.has('yes') && !!e.conflict || conflictFilter.has('no') && !e.conflict
+        if (!has) return false
+      }
+      // Action — OR within, AND with others
+      if (actionFilter.size > 0) {
+        const actionMatch =
+          (actionFilter.has('ok')         && e.action === 'OK')           ||
+          (actionFilter.has('resolved')   && e.action === 'Resolved')     ||
+          (actionFilter.has('waiting')    && e.action === 'Waiting Lead') ||
+          (actionFilter.has('processing') && e.action !== 'OK' && e.action !== 'Resolved' && e.action !== 'Ready to review' && !!e.action)
+        if (!actionMatch) return false
+      }
+      // Result — OR within, AND with others
+      if (resultFilter.size > 0 && !resultFilter.has(effectiveResult(e))) return false
       return true
     })
   }, [entries, episodeSearch, reviewerFilter, conflictFilter, actionFilter, resultFilter])
@@ -205,34 +202,32 @@ export default function ArchivePage() {
 
         <div className="w-full h-px bg-slate-100" />
 
-        {/* 독립 필터 (AND 조합) */}
-        <PillGroup<ConflictFilter>
+        {/* 독립 필터 (카테고리 내 OR, 카테고리 간 AND) */}
+        <MultiPillGroup
           label="Conflict"
-          value={conflictFilter}
-          onChange={setConflictFilter}
-          options={[
-            { key: 'all', label: '전체' },
-            { key: 'yes', label: '있음' },
-            { key: 'no',  label: '없음' },
-          ]}
+          options={[{ key: 'yes', label: '있음' }, { key: 'no', label: '없음' }]}
+          selected={conflictFilter}
+          onToggle={toggle(setConflictFilter)}
+          onClear={() => setConflictFilter(new Set())}
         />
-        <PillGroup<ActionFilter>
+        <MultiPillGroup
           label="Action"
-          value={actionFilter}
-          onChange={setActionFilter}
           options={[
-            { key: 'all',        label: '전체' },
             { key: 'ok',         label: 'OK' },
             { key: 'resolved',   label: 'Resolved' },
             { key: 'waiting',    label: 'Waiting Lead' },
             { key: 'processing', label: '처리중' },
           ]}
+          selected={actionFilter}
+          onToggle={toggle(setActionFilter)}
+          onClear={() => setActionFilter(new Set())}
         />
-        <PillGroup<string>
+        <MultiPillGroup
           label="Result"
-          value={resultFilter}
-          onChange={setResultFilter}
-          options={resultOptions}
+          options={resultOptions.map(v => ({ key: v, label: v }))}
+          selected={resultFilter}
+          onToggle={toggle(setResultFilter)}
+          onClear={() => setResultFilter(new Set())}
         />
       </div>
 

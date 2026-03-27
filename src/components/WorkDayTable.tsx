@@ -86,16 +86,14 @@ type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
   const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow } = useEntries(workDayId, workDate)
 
-  const [rangeFrom, setRangeFrom]       = useState('')
-  const [rangeTo, setRangeTo]           = useState('')
-  const [rangeLoading, setRangeLoading] = useState(false)
-  const [rangeError, setRangeError]     = useState('')
+  const [rangeFrom, setRangeFrom]         = useState('')
+  const [rangeTo, setRangeTo]             = useState('')
+  const [rangeOperator, setRangeOperator] = useState('')
+  const [rangeLoading, setRangeLoading]   = useState(false)
+  const [rangeError, setRangeError]       = useState('')
   const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null)
   const [bannerEpisode, setBannerEpisode] = useState<string | null>(initialBannerEpisode)
-  const [filterResults, setFilterResults] = useState<Set<string>>(new Set())
 
-  const toggleFilter = (val: string) =>
-    setFilterResults(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s })
 
   const saveBannerEpisode = async (episode: string | null) => {
     setBannerEpisode(episode)
@@ -148,7 +146,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     if (to - from > 500)           { setRangeError('한 번에 최대 500개까지 추가 가능합니다'); return }
     setRangeLoading(true)
     const episodes = Array.from({ length: to - from + 1 }, (_, i) => String(from + i))
-    await addRows(episodes, editorName)
+    await addRows(episodes, rangeOperator || editorName)
     setRangeLoading(false)
     setRangeFrom('')
     setRangeTo('')
@@ -226,9 +224,6 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
 
   const crossStartIdx     = bannerEpisode != null ? entries.findIndex(e => e.episode === bannerEpisode) : findCrossStartIdx(entries)
   const crossStartId      = crossStartIdx !== -1 ? entries[crossStartIdx]?.id : null
-  const visibleEntries    = filterResults.size === 0 ? entries : entries.filter(e =>
-    filterResults.has(e.r1_result) || filterResults.has(e.r2_result)
-  )
   const needsActionEntries = entries.filter(e =>
     e.action && e.action !== 'OK' && e.action !== 'Resolved' && e.action !== 'Ready to review'
   )
@@ -275,21 +270,30 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
       {/* 범위 일괄 추가 + Excel 다운로드 */}
       <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm flex-wrap">
         <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">범위 추가</span>
+        <select
+          value={rangeOperator}
+          onChange={e => setRangeOperator(e.target.value)}
+          className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-700"
+        >
+          <option value="">오퍼레이터</option>
+          <option value={r1Name}>{r1Name} (R1)</option>
+          <option value={r2Name}>{r2Name} (R2)</option>
+        </select>
         <input
           type="number"
           value={rangeFrom}
           onChange={e => setRangeFrom(e.target.value)}
-          placeholder="시작 번호"
-          className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-900"
+          placeholder="시작"
+          className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-900"
         />
         <span className="text-slate-400 text-sm">—</span>
         <input
           type="number"
           value={rangeTo}
           onChange={e => setRangeTo(e.target.value)}
-          placeholder="끝 번호"
+          placeholder="끝"
           onKeyDown={e => e.key === 'Enter' && handleAddRange()}
-          className="w-24 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-900"
+          className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white text-slate-900"
         />
         <button
           onClick={handleAddRange}
@@ -300,30 +304,6 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
         </button>
         {rangeError && <span className="text-xs text-red-500">{rangeError}</span>}
         <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-slate-400 mr-1">필터</span>
-            {config.dropdowns.result.map(val => {
-              const active = filterResults.has(val)
-              const colorMap: Record<string, string> = {
-                Clean: active ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-400' : 'text-emerald-600 hover:bg-emerald-50',
-                Dirty: active ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-400'       : 'text-amber-600 hover:bg-amber-50',
-                Fail:  active ? 'bg-red-100 text-red-700 ring-1 ring-red-400'             : 'text-red-500 hover:bg-red-50',
-                None:  active ? 'bg-slate-200 text-slate-700 ring-1 ring-slate-400'       : 'text-slate-500 hover:bg-slate-100',
-              }
-              return (
-                <button
-                  key={val}
-                  onClick={() => toggleFilter(val)}
-                  className={`text-xs px-2 py-1 rounded-md font-medium transition-colors ${colorMap[val] ?? (active ? 'bg-slate-100' : 'hover:bg-slate-50')}`}
-                >
-                  {val}
-                </button>
-              )
-            })}
-            {filterResults.size > 0 && (
-              <button onClick={() => setFilterResults(new Set())} className="text-xs text-slate-400 hover:text-slate-600 ml-1">✕</button>
-            )}
-          </div>
           <span className="text-xs text-slate-400">에피소드 행 hover → + 버튼으로 사이에 행 삽입</span>
           <button
             onClick={handleExport}
@@ -401,7 +381,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
               </tr>
             </thead>
             <tbody>
-              {visibleEntries.map((entry) => (
+              {entries.map((entry) => (
                 <Fragment key={entry.id}>
                   {insertBeforeId === entry.id && (
                     <InsertRow

@@ -219,7 +219,7 @@ export default function HomePage() {
           {filteredWorkDays.map(wd => {
             const sum = summaries[wd.date]
             return (
-              <li key={wd.date}>
+              <li key={wd.id}>
                 {deletingDate === wd.id ? (
                   <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
                     <p className="text-sm text-red-700 font-medium">
