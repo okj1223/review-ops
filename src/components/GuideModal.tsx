@@ -114,6 +114,17 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <div className="w-full h-px bg-slate-100" />
 
           <section>
+            <p className="font-semibold text-slate-700 mb-2">↩ 되돌리기</p>
+            <div className="flex flex-col gap-1.5 text-slate-500">
+              <p>툴바의 <span className="font-medium text-slate-700">↩ 되돌리기</span> 버튼 또는 <kbd className="px-1.5 py-0.5 bg-slate-50 border border-slate-300 rounded text-[11px] font-mono text-slate-700">Ctrl+Z</kbd>로 내가 변경한 내용을 한 단계씩 되돌릴 수 있습니다.</p>
+              <p>되돌리기는 <span className="font-medium text-slate-700">현재 세션에서 내가 변경한 내역</span>만 추적합니다. 페이지를 새로고침하거나 다른 사람의 변경은 되돌릴 수 없습니다.</p>
+              <p>버튼 옆 숫자는 되돌릴 수 있는 단계 수입니다.</p>
+            </div>
+          </section>
+
+          <div className="w-full h-px bg-slate-100" />
+
+          <section>
             <p className="font-semibold text-slate-700 mb-2">키보드 단축키</p>
             <p className="text-slate-500 mb-1.5">Result 셀 포커스 중 · 집중모드</p>
             <div className="flex gap-3 flex-wrap mb-3">

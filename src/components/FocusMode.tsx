@@ -23,6 +23,13 @@ const RESULT_STYLE: Record<string, string> = {
   None:  'bg-slate-600/40 text-slate-300 border-slate-500/40 hover:bg-slate-600/60',
 }
 
+const RESULT_STYLE_DIM: Record<string, string> = {
+  Clean: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40',
+  Dirty: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-amber-500/20  hover:text-amber-300  hover:border-amber-500/40',
+  Fail:  'bg-slate-800 text-slate-600 border-slate-700 hover:bg-red-500/20    hover:text-red-300    hover:border-red-500/40',
+  None:  'bg-slate-800 text-slate-600 border-slate-700 hover:bg-slate-600/40  hover:text-slate-300  hover:border-slate-500/40',
+}
+
 const RESULT_BADGE: Record<string, string> = {
   Clean: 'bg-emerald-500/20 text-emerald-400',
   Dirty: 'bg-amber-500/20 text-amber-400',
@@ -115,7 +122,8 @@ function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, no
 export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config, onSave, onExit, eventWindow }: Props) {
   const resultField = reviewer === 'r1' ? 'r1_result' : 'r2_result'
   const [currentIdx, setCurrentIdx] = useState(() => findStartIdx(entries, reviewer, direction))
-  const [noteValue, setNoteValue] = useState('')
+  const [noteValue, setNoteValue]   = useState('')
+  const [flashResult, setFlashResult] = useState<string | null>(null)
   const noteRef    = useRef<HTMLTextAreaElement>(null)
   const prevIdxRef = useRef(currentIdx)
 
@@ -148,7 +156,8 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
     if (!entry) return
     const note = noteRef.current?.value ?? noteValue
     onSave({ ...entry, [resultField]: value, note: note || null, work_date: entry.work_date })
-    advance()
+    setFlashResult(value)
+    setTimeout(() => { setFlashResult(null); advance() }, 250)
   }, [entries, currentIdx, resultField, noteValue, onSave, advance])
 
   const handleNavigate = useCallback((delta: number) => {
@@ -193,6 +202,72 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   const pastEntry = pastIdx >= 0 && pastIdx < entries.length ? entries[pastIdx] : null
   const currEntry = entries[currentIdx] ?? null
   const nextEntry = nextIdx >= 0 && nextIdx < entries.length ? entries[nextIdx] : null
+
+  // PiP 컴팩트 모드
+  if (eventWindow) {
+    const MiniRow = ({ ep, result, dim, onClick }: { ep: string; result: string; dim: boolean; onClick?: () => void }) => (
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center justify-between px-3 py-1 transition-colors ${dim ? 'opacity-35 hover:opacity-60' : ''} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      >
+        <span className="text-slate-400 text-[11px] font-mono">Ep.{ep}</span>
+        {result && (
+          <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${RESULT_BADGE[result] ?? 'text-slate-500'}`}>{result}</span>
+        )}
+      </button>
+    )
+
+    return (
+      <div className="fixed inset-0 bg-slate-900 flex flex-col">
+        {/* 이전 행 */}
+        {pastEntry
+          ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-step)} />
+          : <div className="h-6" />
+        }
+
+        {/* 현재 행 */}
+        <div className="flex items-center gap-1 px-2 py-1">
+          <span className="text-white text-xs font-mono shrink-0 min-w-[3.5rem]">Ep.{currEntry?.episode ?? '—'}</span>
+          <div className="flex gap-1 flex-1">
+            {currEntry ? config.dropdowns.result.map(r => {
+              const current  = flashResult ?? (currEntry[resultField as keyof EntryWithComputed] as string)
+              const isActive = current === r
+              const isOther  = !!current && current !== r
+              return (
+                <button key={r} onClick={() => handleResult(r)}
+                  className={`flex-1 py-1 rounded text-[11px] font-semibold border transition-all ${
+                    isOther ? RESULT_STYLE_DIM[r] ?? 'bg-slate-800 text-slate-600 border-slate-700'
+                            : RESULT_STYLE[r]     ?? 'bg-slate-700 text-white border-slate-600'
+                  }`}>
+                  {r}
+                </button>
+              )
+            }) : (
+              <button onClick={onExit} className="flex-1 py-1 rounded text-[11px] bg-white/10 text-white border border-white/20">나가기</button>
+            )}
+          </div>
+        </div>
+
+        {/* 메모 */}
+        <div className="px-2 pb-1">
+          <textarea
+            ref={noteRef}
+            value={noteValue}
+            onChange={e => setNoteValue(e.target.value)}
+            placeholder="메모..."
+            rows={1}
+            className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-none"
+          />
+        </div>
+
+        {/* 다음 행 */}
+        {nextEntry
+          ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(step)} />
+          : <div className="h-6" />
+        }
+      </div>
+    )
+  }
 
   if (!currEntry) {
     return (

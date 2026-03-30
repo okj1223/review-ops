@@ -67,7 +67,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     if ('documentPictureInPicture' in window) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pw: Window & typeof globalThis = await (window as any).documentPictureInPicture.requestWindow({ width: 420, height: 500 })
+        const pw: Window & typeof globalThis = await (window as any).documentPictureInPicture.requestWindow({ width: 400, height: 180 })
         setPipWindow(pw)
         setFocusConfig(cfg)
       } catch {
