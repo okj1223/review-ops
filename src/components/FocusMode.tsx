@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { EntryWithComputed, WorkDayConfig } from '@/lib/types'
 
 interface Props {
@@ -14,27 +14,34 @@ interface Props {
   eventWindow?: Window & typeof globalThis
 }
 
-const SHORTCUT: Record<string, string> = { c: 'Clean', d: 'Dirty', f: 'Fail', n: 'None' }
+const COLOR_PALETTE = [
+  { style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30',  styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40', badge: 'bg-emerald-500/20 text-emerald-400' },
+  { style: 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30',          styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-amber-500/20  hover:text-amber-300  hover:border-amber-500/40',  badge: 'bg-amber-500/20 text-amber-400'   },
+  { style: 'bg-red-500/20 text-red-300 border-red-500/40 hover:bg-red-500/30',                  styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-red-500/20    hover:text-red-300    hover:border-red-500/40',    badge: 'bg-red-500/20 text-red-400'       },
+  { style: 'bg-slate-600/40 text-slate-300 border-slate-500/40 hover:bg-slate-600/60',          styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-slate-600/40  hover:text-slate-300  hover:border-slate-500/40',  badge: 'bg-slate-600/40 text-slate-400'   },
+  { style: 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30',              styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-blue-500/20   hover:text-blue-300   hover:border-blue-500/40',   badge: 'bg-blue-500/20 text-blue-400'     },
+  { style: 'bg-violet-500/20 text-violet-300 border-violet-500/40 hover:bg-violet-500/30',      styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-violet-500/20  hover:text-violet-300 hover:border-violet-500/40',  badge: 'bg-violet-500/20 text-violet-400' },
+  { style: 'bg-pink-500/20 text-pink-300 border-pink-500/40 hover:bg-pink-500/30',              styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-pink-500/20    hover:text-pink-300   hover:border-pink-500/40',   badge: 'bg-pink-500/20 text-pink-400'     },
+  { style: 'bg-teal-500/20 text-teal-300 border-teal-500/40 hover:bg-teal-500/30',              styleDim: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-teal-500/20    hover:text-teal-300   hover:border-teal-500/40',   badge: 'bg-teal-500/20 text-teal-400'     },
+]
 
-const RESULT_STYLE: Record<string, string> = {
-  Clean: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30',
-  Dirty: 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30',
-  Fail:  'bg-red-500/20 text-red-300 border-red-500/40 hover:bg-red-500/30',
-  None:  'bg-slate-600/40 text-slate-300 border-slate-500/40 hover:bg-slate-600/60',
-}
-
-const RESULT_STYLE_DIM: Record<string, string> = {
-  Clean: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40',
-  Dirty: 'bg-slate-800 text-slate-600 border-slate-700 hover:bg-amber-500/20  hover:text-amber-300  hover:border-amber-500/40',
-  Fail:  'bg-slate-800 text-slate-600 border-slate-700 hover:bg-red-500/20    hover:text-red-300    hover:border-red-500/40',
-  None:  'bg-slate-800 text-slate-600 border-slate-700 hover:bg-slate-600/40  hover:text-slate-300  hover:border-slate-500/40',
-}
-
-const RESULT_BADGE: Record<string, string> = {
-  Clean: 'bg-emerald-500/20 text-emerald-400',
-  Dirty: 'bg-amber-500/20 text-amber-400',
-  Fail:  'bg-red-500/20 text-red-400',
-  None:  'bg-slate-600/40 text-slate-400',
+function buildShortcuts(results: string[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  const used = new Set<string>()
+  for (const r of results) {
+    let assigned = false
+    for (const ch of r.toLowerCase()) {
+      if (ch < 'a' || ch > 'z') continue
+      if (!used.has(ch)) { map[ch] = r; used.add(ch); assigned = true; break }
+    }
+    if (!assigned) {
+      for (let i = 0; i < 26; i++) {
+        const ch = String.fromCharCode(97 + i)
+        if (!used.has(ch)) { map[ch] = r; used.add(ch); break }
+      }
+    }
+  }
+  return map
 }
 
 function findStartIdx(entries: EntryWithComputed[], reviewer: 'r1' | 'r2', direction: 'down' | 'up'): number {
@@ -55,17 +62,20 @@ interface RowCardProps {
   entry: EntryWithComputed | null
   role: 'past' | 'current' | 'next'
   resultField: string
-  config: WorkDayConfig
+  results: string[]
+  shortcuts: Record<string, string>  // key → result
   noteValue: string
   setNoteValue: (v: string) => void
   noteRef: React.RefObject<HTMLTextAreaElement | null>
   onResult: (r: string) => void
 }
 
-function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, noteRef, onResult }: RowCardProps) {
+function RowCard({ entry, role, resultField, results, shortcuts, noteValue, setNoteValue, noteRef, onResult }: RowCardProps) {
   if (!entry) return <div className="h-12" />
   const val    = entry[resultField as keyof EntryWithComputed] as string
   const isMain = role === 'current'
+  const shortcutKey = (r: string) => Object.entries(shortcuts).find(([, v]) => v === r)?.[0]?.toUpperCase()
+  const palette = (r: string) => COLOR_PALETTE[results.indexOf(r) % COLOR_PALETTE.length] ?? COLOR_PALETTE[0]
   return (
     <div className={[
       'rounded-xl border px-4 transition-all',
@@ -82,7 +92,7 @@ function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, no
             <span className="text-[10px] text-slate-500" title={entry.note}>✎</span>
           )}
           {val
-            ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${RESULT_BADGE[val] ?? 'text-slate-400'}`}>{val}</span>
+            ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${palette(val).badge}`}>{val}</span>
             : isMain && <span className="text-xs text-slate-500">미입력</span>
           }
         </div>
@@ -91,13 +101,13 @@ function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, no
       {isMain && (
         <>
           <div className="flex gap-2 mt-3">
-            {config.dropdowns.result.map(r => {
-              const key = Object.entries(SHORTCUT).find(([, v]) => v === r)?.[0]?.toUpperCase()
+            {results.map(r => {
+              const key = shortcutKey(r)
               return (
                 <button
                   key={r}
                   onClick={() => onResult(r)}
-                  className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-all ${RESULT_STYLE[r] ?? 'bg-slate-700 text-white border-slate-600 hover:bg-slate-600'}`}
+                  className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-all ${palette(r).style}`}
                 >
                   {r}
                   {key && <span className="block text-[10px] opacity-50 mt-0.5">{key}</span>}
@@ -120,7 +130,14 @@ function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, no
 }
 
 export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config, onSave, onExit, eventWindow }: Props) {
-  const resultField = reviewer === 'r1' ? 'r1_result' : 'r2_result'
+  const [currentReviewer, setCurrentReviewer] = useState<'r1' | 'r2'>(reviewer)
+
+  const toggleReviewer = useCallback(() => {
+    setCurrentReviewer(r => r === 'r1' ? 'r2' : 'r1')
+  }, [])
+  const resultField = currentReviewer === 'r1' ? 'r1_result' : 'r2_result'
+  const results   = config.dropdowns.result
+  const shortcuts = useMemo(() => buildShortcuts(results), [results])
   const [currentIdx, setCurrentIdx] = useState(() => findStartIdx(entries, reviewer, direction))
   const [noteValue, setNoteValue]   = useState('')
   const [flashResult, setFlashResult] = useState<string | null>(null)
@@ -181,18 +198,16 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
       const isTextInput = tag === 'input' || tag === 'textarea' || tag === 'select'
       if (e.key === 'Escape') { if (!isTextInput) onExit(); return }
       if (isTextInput) return
+      if (e.key === 'Tab')       { e.preventDefault(); toggleReviewer(); return }
       if (e.key === 'ArrowDown') { e.preventDefault(); handleNavigate(1); return }
       if (e.key === 'ArrowUp')   { e.preventDefault(); handleNavigate(-1); return }
-      const result = SHORTCUT[e.key.toLowerCase()]
-      if (result && config.dropdowns.result.includes(result)) {
-        e.preventDefault()
-        handleResult(result)
-      }
+      const result = shortcuts[e.key.toLowerCase()]
+      if (result) { e.preventDefault(); handleResult(result) }
     }
     const target = eventWindow ?? window
     target.addEventListener('keydown', handler)
     return () => target.removeEventListener('keydown', handler)
-  }, [handleResult, handleNavigate, onExit, config.dropdowns.result, eventWindow])
+  }, [handleResult, handleNavigate, toggleReviewer, onExit, shortcuts, eventWindow])
 
   const filledCnt = entries.filter(e => e.r1_result || e.r2_result).length
   const remainCnt = entries.length - filledCnt
@@ -212,7 +227,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
       >
         <span className="text-slate-400 text-[11px] font-mono">Ep.{ep}</span>
         {result && (
-          <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${RESULT_BADGE[result] ?? 'text-slate-500'}`}>{result}</span>
+          <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${(COLOR_PALETTE[results.indexOf(result) % COLOR_PALETTE.length] ?? COLOR_PALETTE[0]).badge}`}>{result}</span>
         )}
       </button>
     )
@@ -227,18 +242,26 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
 
         {/* 현재 행 */}
         <div className="flex items-center gap-1 px-2 py-1">
+          <button
+            onClick={toggleReviewer}
+            title="R1/R2 전환 (Tab)"
+            className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+              currentReviewer === 'r1'
+                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+            }`}>
+            {currentReviewer === 'r1' ? r1Name : r2Name}
+          </button>
           <span className="text-white text-xs font-mono shrink-0 min-w-[3.5rem]">Ep.{currEntry?.episode ?? '—'}</span>
+          <span className="text-slate-500 text-[10px] shrink-0">{filledCnt}/{entries.length}</span>
           <div className="flex gap-1 flex-1">
-            {currEntry ? config.dropdowns.result.map(r => {
+            {currEntry ? results.map(r => {
               const current  = flashResult ?? (currEntry[resultField as keyof EntryWithComputed] as string)
-              const isActive = current === r
               const isOther  = !!current && current !== r
+              const p        = COLOR_PALETTE[results.indexOf(r) % COLOR_PALETTE.length] ?? COLOR_PALETTE[0]
               return (
                 <button key={r} onClick={() => handleResult(r)}
-                  className={`flex-1 py-1 rounded text-[11px] font-semibold border transition-all ${
-                    isOther ? RESULT_STYLE_DIM[r] ?? 'bg-slate-800 text-slate-600 border-slate-700'
-                            : RESULT_STYLE[r]     ?? 'bg-slate-700 text-white border-slate-600'
-                  }`}>
+                  className={`flex-1 py-1 rounded text-[11px] font-semibold border transition-all ${isOther ? p.styleDim : p.style}`}>
                   {r}
                 </button>
               )
@@ -306,23 +329,21 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
 
       {/* 3줄 */}
       <div className="flex flex-col gap-2 w-full max-w-md">
-        <RowCard entry={pastEntry} role="past" resultField={resultField} config={config}
+        <RowCard entry={pastEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
           noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-        <RowCard entry={currEntry} role="current" resultField={resultField} config={config}
+        <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
           noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-        <RowCard entry={nextEntry} role="next" resultField={resultField} config={config}
+        <RowCard entry={nextEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
           noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
       </div>
 
       {/* 단축키 안내 */}
       <div className="flex gap-4 mt-2">
-        {Object.entries(SHORTCUT).map(([key, val]) => (
-          config.dropdowns.result.includes(val) && (
-            <div key={key} className="flex items-center gap-1.5">
-              <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[11px] font-mono text-slate-300">{key.toUpperCase()}</kbd>
-              <span className="text-slate-500 text-xs">{val}</span>
-            </div>
-          )
+        {Object.entries(shortcuts).map(([key, val]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[11px] font-mono text-slate-300">{key.toUpperCase()}</kbd>
+            <span className="text-slate-500 text-xs">{val}</span>
+          </div>
         ))}
       </div>
     </div>

@@ -57,6 +57,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
               <p><span className="font-medium text-slate-700">↑ / ↓</span> 키 또는 헤더 버튼으로 결과 입력 없이 행 이동이 가능합니다.</p>
               <p>현재 행 아래 <span className="font-medium text-slate-700">메모 입력창</span>에 메모를 남길 수 있으며, 결과 선택 시 함께 저장됩니다. 메모 입력 중에는 단축키가 동작하지 않습니다.</p>
               <p>메모가 있는 행은 메인 테이블에서 에피소드 옆에 <span className="font-medium text-slate-700">✎</span> 아이콘으로 표시되며, 마우스를 올리면 내용을 확인할 수 있습니다.</p>
+              <p><span className="font-medium text-slate-700">Tab</span> 키 또는 검수자 이름 버튼을 클릭하면 R1 / R2를 즉시 전환할 수 있습니다.</p>
               <p><span className="font-medium text-slate-700">Esc</span>를 누르면 일반 모드로 돌아옵니다.</p>
             </div>
           </section>
@@ -140,6 +141,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
               {[
                 [['Ctrl', 'Z'], '내 변경 한 단계 되돌리기'],
                 [['↑', '↓'], '집중모드에서 결과 입력 없이 행 이동'],
+                [['Tab'], '집중모드에서 R1 / R2 전환'],
                 [['Enter'], '숫자 입력 필드에서 일괄 추가 / 범위 삭제 실행'],
                 [['Enter'], '새 작업일 생성 모달에서 생성 실행'],
                 [['Esc'], '집중모드 종료 / 모달 · 드롭다운 닫기'],
