@@ -50,6 +50,7 @@ export interface Entry {
   reason_detail: string
   response_detail: string
   route: string
+  note?: string | null
   last_editor: string
   last_updated: string
 }

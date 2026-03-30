@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import * as XLSX from 'xlsx'
 import { EntryRow } from './EntryRow'
 import { FocusMode } from './FocusMode'
+import { PiPWindow } from './PiPWindow'
 import { useEntries } from '@/hooks/useEntries'
 import { DEFAULT_CONFIG } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +59,24 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [focusConfig, setFocusConfig] = useState<{ reviewer: 'r1' | 'r2'; direction: 'down' | 'up' } | null>(null)
   const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
   const [focusSetupDir, setFocusSetupDir] = useState<'down' | 'up'>('down')
+  const [pipWindow, setPipWindow] = useState<(Window & typeof globalThis) | null>(null)
+
+  const handleStartFocus = async () => {
+    setFocusSetup(false)
+    const cfg = { reviewer: focusSetupReviewer, direction: focusSetupDir }
+    if ('documentPictureInPicture' in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pw: Window & typeof globalThis = await (window as any).documentPictureInPicture.requestWindow({ width: 420, height: 500 })
+        setPipWindow(pw)
+        setFocusConfig(cfg)
+      } catch {
+        setFocusConfig(cfg) // fallback: 전체화면 모드
+      }
+    } else {
+      setFocusConfig(cfg)
+    }
+  }
 
   const [rangeFrom, setRangeFrom]         = useState('')
   const [rangeTo, setRangeTo]             = useState('')
@@ -379,7 +398,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                 취소
               </button>
               <button
-                onClick={() => { setFocusSetup(false); setFocusConfig({ reviewer: focusSetupReviewer, direction: focusSetupDir }) }}
+                onClick={handleStartFocus}
                 className="flex-1 bg-slate-900 text-white rounded-lg py-2 text-sm hover:bg-slate-800"
               >
                 시작
@@ -390,7 +409,23 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
       )}
 
       {/* 집중모드 오버레이 */}
-      {focusConfig && (
+      {focusConfig && pipWindow ? (
+        <PiPWindow pipWindow={pipWindow} onClose={() => { setFocusConfig(null); setPipWindow(null) }}>
+          {(pipWin) => (
+            <FocusMode
+              entries={entries}
+              reviewer={focusConfig.reviewer}
+              direction={focusConfig.direction}
+              r1Name={r1Name}
+              r2Name={r2Name}
+              config={config}
+              onSave={e => handleSave(e)}
+              onExit={() => { setFocusConfig(null); setPipWindow(null) }}
+              eventWindow={pipWin}
+            />
+          )}
+        </PiPWindow>
+      ) : focusConfig ? (
         <FocusMode
           entries={entries}
           reviewer={focusConfig.reviewer}
@@ -401,7 +436,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           onSave={e => handleSave(e)}
           onExit={() => setFocusConfig(null)}
         />
-      )}
+      ) : null}
       {/* 범위 일괄 추가 + 범위 삭제 + Excel 다운로드 */}
       <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         {/* 범위 추가 */}

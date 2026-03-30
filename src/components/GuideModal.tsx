@@ -47,9 +47,16 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
             <p className="font-semibold text-slate-700 mb-2">⊙ 집중모드</p>
             <div className="flex flex-col gap-1.5 text-slate-500">
               <p>툴바의 <span className="font-medium text-slate-700">⊙ 집중모드</span> 버튼을 클릭해 활성화합니다.</p>
-              <p>리뷰어와 진행 방향(↓ 위→아래 / ↑ 아래→위)을 선택하면 전체 화면으로 전환됩니다.</p>
-              <p>지나간 행 · 현재 행 · 다음 행 3줄만 표시되며, 현재 행의 Result에 자동 포커스됩니다.</p>
+              <p>리뷰어와 진행 방향을 선택한 뒤 <span className="font-medium text-slate-700">시작</span>을 누릅니다.</p>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                🟡 <span className="font-medium text-slate-500">Chrome / Edge</span> — 다른 창(픽서 등) 위에 항상 떠있는 플로팅 창으로 열립니다. 창을 클릭하면 단축키가 활성화됩니다.<br />
+                🔵 <span className="font-medium text-slate-500">Firefox / 기타</span> — 전체 화면 오버레이로 전환됩니다.
+              </p>
+              <p>지나간 행 · 현재 행 · 다음 행 3줄만 표시됩니다.</p>
               <p><span className="font-medium text-slate-700">C / D / F / N</span> 키를 누르면 결과가 저장되고 다음 행으로 자동 이동합니다.</p>
+              <p><span className="font-medium text-slate-700">↑ / ↓</span> 키 또는 헤더 버튼으로 결과 입력 없이 행 이동이 가능합니다.</p>
+              <p>현재 행 아래 <span className="font-medium text-slate-700">메모 입력창</span>에 메모를 남길 수 있으며, 결과 선택 시 함께 저장됩니다. 메모 입력 중에는 단축키가 동작하지 않습니다.</p>
+              <p>메모가 있는 행은 메인 테이블에서 에피소드 옆에 <span className="font-medium text-slate-700">✎</span> 아이콘으로 표시되며, 마우스를 올리면 내용을 확인할 수 있습니다.</p>
               <p><span className="font-medium text-slate-700">Esc</span>를 누르면 일반 모드로 돌아옵니다.</p>
             </div>
           </section>
@@ -121,6 +128,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col gap-1.5">
               {[
                 [['Ctrl', 'Z'], '내 변경 한 단계 되돌리기'],
+                [['↑', '↓'], '집중모드에서 결과 입력 없이 행 이동'],
                 [['Enter'], '숫자 입력 필드에서 일괄 추가 / 범위 삭제 실행'],
                 [['Enter'], '새 작업일 생성 모달에서 생성 실행'],
                 [['Esc'], '집중모드 종료 / 모달 · 드롭다운 닫기'],

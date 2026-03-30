@@ -79,6 +79,7 @@ export function useEntries(workDayId: string, workDate: string) {
       final_result:    data.final_result    ?? '', final_pick: data.final_pick ?? '', final_place: data.final_place ?? '', final_frame3: data.final_frame3 ?? '',
       reason_code:     data.reason_code     ?? '', reason_detail: data.reason_detail ?? '', response_detail: data.response_detail ?? '',
       route:           data.route           ?? '',
+      note:            data.note            ?? null,
       last_editor:     editorName,
       last_updated:    new Date().toISOString(),
     })

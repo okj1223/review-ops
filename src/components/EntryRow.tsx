@@ -344,16 +344,26 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       {/* Episode */}
       <td className={cell('sticky left-8 z-10 bg-white group-hover:bg-slate-50 w-20')}>
         <div className="flex flex-col items-start gap-0.5">
-          <input
-            className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
-            value={local.episode}
-            onFocus={() => { focusedField.current = 'episode' }}
-            onChange={e => {
-              latestLocal.current = { ...latestLocal.current, episode: e.target.value }
-              setLocal(p => ({ ...p, episode: e.target.value }))
-            }}
-            onBlur={handleTextBlur}
-          />
+          <div className="flex items-center gap-1">
+            <input
+              className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
+              value={local.episode}
+              onFocus={() => { focusedField.current = 'episode' }}
+              onChange={e => {
+                latestLocal.current = { ...latestLocal.current, episode: e.target.value }
+                setLocal(p => ({ ...p, episode: e.target.value }))
+              }}
+              onBlur={handleTextBlur}
+            />
+            {local.note && (
+              <span
+                title={local.note}
+                className="text-slate-400 hover:text-slate-600 cursor-default text-xs shrink-0 leading-none"
+              >
+                ✎
+              </span>
+            )}
+          </div>
           {local.target && (
             <span className={[
               'text-[9px] font-bold px-1.5 py-px rounded-full leading-tight',
