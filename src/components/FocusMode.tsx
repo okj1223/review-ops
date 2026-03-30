@@ -115,6 +115,9 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
     return () => target.removeEventListener('keydown', handler)
   }, [handleResult, handleNavigate, onExit, config.dropdowns.result, eventWindow])
 
+  const filledCnt = entries.filter(e => e.r1_result || e.r2_result).length
+  const remainCnt = entries.length - filledCnt
+
   const pastIdx  = currentIdx - step
   const nextIdx  = currentIdx + step
   const pastEntry = pastIdx >= 0 && pastIdx < entries.length ? entries[pastIdx] : null
@@ -126,7 +129,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
       <div className="fixed inset-0 z-50 bg-slate-950/97 flex flex-col items-center justify-center gap-4">
         <p className="text-4xl">🎉</p>
         <p className="text-white text-xl font-bold">모두 완료!</p>
-        <p className="text-slate-400 text-sm">{done}개 입력 완료</p>
+        <p className="text-slate-400 text-sm">{filledCnt}개 완료</p>
         <button onClick={onExit} className="mt-2 bg-white text-slate-900 px-6 py-2 rounded-xl font-medium hover:bg-slate-100 transition-colors">
           나가기
         </button>
@@ -135,8 +138,6 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   }
 
   const reviewerName = reviewer === 'r1' ? r1Name : r2Name
-  const filledCnt    = entries.filter(e => e.r1_result || e.r2_result).length
-  const remainCnt    = entries.length - filledCnt
   const progress     = `${filledCnt}개 완료 · ${remainCnt}개 남음`
 
   const RowCard = ({ entry, role }: { entry: EntryWithComputed | null; role: 'past' | 'current' | 'next' }) => {
