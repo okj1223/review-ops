@@ -43,16 +43,85 @@ function findStartIdx(entries: EntryWithComputed[], reviewer: 'r1' | 'r2', direc
   }
 }
 
+// RowCard를 모듈 최상단에 선언 — FocusMode 내부 선언 시 매 렌더마다 새 타입으로 인식되어 unmount/remount 발생
+interface RowCardProps {
+  entry: EntryWithComputed | null
+  role: 'past' | 'current' | 'next'
+  resultField: string
+  config: WorkDayConfig
+  noteValue: string
+  setNoteValue: (v: string) => void
+  noteRef: React.RefObject<HTMLTextAreaElement | null>
+  onResult: (r: string) => void
+}
+
+function RowCard({ entry, role, resultField, config, noteValue, setNoteValue, noteRef, onResult }: RowCardProps) {
+  if (!entry) return <div className="h-12" />
+  const val    = entry[resultField as keyof EntryWithComputed] as string
+  const isMain = role === 'current'
+  return (
+    <div className={[
+      'rounded-xl border px-4 transition-all',
+      isMain
+        ? 'py-4 border-blue-500/60 bg-slate-800 shadow-xl shadow-blue-500/10'
+        : 'py-2.5 border-slate-700/50 bg-slate-900/60 opacity-40',
+    ].join(' ')}>
+      <div className="flex items-center justify-between">
+        <span className={`font-mono font-bold ${isMain ? 'text-white text-base' : 'text-slate-400 text-sm'}`}>
+          Ep. {entry.episode}
+        </span>
+        <div className="flex items-center gap-2">
+          {entry.note && !isMain && (
+            <span className="text-[10px] text-slate-500" title={entry.note}>✎</span>
+          )}
+          {val
+            ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${RESULT_BADGE[val] ?? 'text-slate-400'}`}>{val}</span>
+            : isMain && <span className="text-xs text-slate-500">미입력</span>
+          }
+        </div>
+      </div>
+
+      {isMain && (
+        <>
+          <div className="flex gap-2 mt-3">
+            {config.dropdowns.result.map(r => {
+              const key = Object.entries(SHORTCUT).find(([, v]) => v === r)?.[0]?.toUpperCase()
+              return (
+                <button
+                  key={r}
+                  onClick={() => onResult(r)}
+                  className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-all ${RESULT_STYLE[r] ?? 'bg-slate-700 text-white border-slate-600 hover:bg-slate-600'}`}
+                >
+                  {r}
+                  {key && <span className="block text-[10px] opacity-50 mt-0.5">{key}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <textarea
+            ref={noteRef}
+            value={noteValue}
+            onChange={e => setNoteValue(e.target.value)}
+            placeholder="메모 (선택 · 결과 선택 시 함께 저장)"
+            rows={1}
+            className="mt-3 w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-xs text-slate-300 placeholder-slate-500 focus:outline-none focus:border-slate-400 resize-none"
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
 export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config, onSave, onExit, eventWindow }: Props) {
   const resultField = reviewer === 'r1' ? 'r1_result' : 'r2_result'
   const [currentIdx, setCurrentIdx] = useState(() => findStartIdx(entries, reviewer, direction))
   const [noteValue, setNoteValue] = useState('')
-  const noteRef = useRef<HTMLTextAreaElement>(null)
+  const noteRef    = useRef<HTMLTextAreaElement>(null)
   const prevIdxRef = useRef(currentIdx)
 
   const step = direction === 'down' ? 1 : -1
 
-  // Reset note only when row changes (not on entries re-render)
+  // 행이 바뀔 때만 메모 초기화
   useEffect(() => {
     if (prevIdxRef.current !== currentIdx) {
       prevIdxRef.current = currentIdx
@@ -60,7 +129,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
     }
   })
 
-  // Initialize note for first row
+  // 최초 메모 초기화
   useEffect(() => {
     setNoteValue(entries[currentIdx]?.note ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,11 +167,11 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   }, [entries, currentIdx, noteValue, onSave])
 
   useEffect(() => {
-    const target = eventWindow ?? window
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onExit(); return }
-      const tag = (target.document.activeElement?.tagName ?? '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+      const tag = ((e.target as HTMLElement)?.tagName ?? '').toLowerCase()
+      const isTextInput = tag === 'input' || tag === 'textarea' || tag === 'select'
+      if (e.key === 'Escape') { if (!isTextInput) onExit(); return }
+      if (isTextInput) return
       if (e.key === 'ArrowDown') { e.preventDefault(); handleNavigate(1); return }
       if (e.key === 'ArrowUp')   { e.preventDefault(); handleNavigate(-1); return }
       const result = SHORTCUT[e.key.toLowerCase()]
@@ -111,6 +180,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
         handleResult(result)
       }
     }
+    const target = eventWindow ?? window
     target.addEventListener('keydown', handler)
     return () => target.removeEventListener('keydown', handler)
   }, [handleResult, handleNavigate, onExit, config.dropdowns.result, eventWindow])
@@ -118,8 +188,8 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   const filledCnt = entries.filter(e => e.r1_result || e.r2_result).length
   const remainCnt = entries.length - filledCnt
 
-  const pastIdx  = currentIdx - step
-  const nextIdx  = currentIdx + step
+  const pastIdx   = currentIdx - step
+  const nextIdx   = currentIdx + step
   const pastEntry = pastIdx >= 0 && pastIdx < entries.length ? entries[pastIdx] : null
   const currEntry = entries[currentIdx] ?? null
   const nextEntry = nextIdx >= 0 && nextIdx < entries.length ? entries[nextIdx] : null
@@ -140,63 +210,6 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   const reviewerName = reviewer === 'r1' ? r1Name : r2Name
   const progress     = `${filledCnt}개 완료 · ${remainCnt}개 남음`
 
-  const RowCard = ({ entry, role }: { entry: EntryWithComputed | null; role: 'past' | 'current' | 'next' }) => {
-    if (!entry) return <div className="h-12" />
-    const val    = entry[resultField as keyof EntryWithComputed] as string
-    const isMain = role === 'current'
-    return (
-      <div className={[
-        'rounded-xl border px-4 transition-all',
-        isMain
-          ? 'py-4 border-blue-500/60 bg-slate-800 shadow-xl shadow-blue-500/10'
-          : 'py-2.5 border-slate-700/50 bg-slate-900/60 opacity-40',
-      ].join(' ')}>
-        <div className="flex items-center justify-between">
-          <span className={`font-mono font-bold ${isMain ? 'text-white text-base' : 'text-slate-400 text-sm'}`}>
-            Ep. {entry.episode}
-          </span>
-          <div className="flex items-center gap-2">
-            {entry.note && !isMain && (
-              <span className="text-[10px] text-slate-500" title={entry.note}>✎</span>
-            )}
-            {val
-              ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${RESULT_BADGE[val] ?? 'text-slate-400'}`}>{val}</span>
-              : isMain && <span className="text-xs text-slate-500">미입력</span>
-            }
-          </div>
-        </div>
-
-        {isMain && (
-          <>
-            <div className="flex gap-2 mt-3">
-              {config.dropdowns.result.map(r => {
-                const key = Object.entries(SHORTCUT).find(([, v]) => v === r)?.[0]?.toUpperCase()
-                return (
-                  <button
-                    key={r}
-                    onClick={() => handleResult(r)}
-                    className={`flex-1 py-2.5 rounded-lg border font-medium text-sm transition-all ${RESULT_STYLE[r] ?? 'bg-slate-700 text-white border-slate-600 hover:bg-slate-600'}`}
-                  >
-                    {r}
-                    {key && <span className="block text-[10px] opacity-50 mt-0.5">{key}</span>}
-                  </button>
-                )
-              })}
-            </div>
-            <textarea
-              ref={noteRef}
-              value={noteValue}
-              onChange={e => setNoteValue(e.target.value)}
-              placeholder="메모 (선택 · 결과 선택 시 함께 저장)"
-              rows={1}
-              className="mt-3 w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-xs text-slate-300 placeholder-slate-500 focus:outline-none focus:border-slate-400 resize-none"
-            />
-          </>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/97 flex flex-col items-center justify-center gap-3 px-4">
 
@@ -205,34 +218,25 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
         <span className="text-slate-500 text-xs">{reviewerName}</span>
         <span className="text-slate-400 text-xs font-medium">{progress}</span>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => handleNavigate(-1)}
-            title="이전 행 (↑)"
-            className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            ↑
-          </button>
-          <button
-            onClick={() => handleNavigate(1)}
-            title="다음 행 (↓)"
-            className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            ↓
-          </button>
+          <button onClick={() => handleNavigate(-1)} title="이전 행 (↑)"
+            className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors">↑</button>
+          <button onClick={() => handleNavigate(1)} title="다음 행 (↓)"
+            className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors">↓</button>
         </div>
-        <button
-          onClick={onExit}
-          className="text-slate-500 hover:text-white text-xs px-2.5 py-1 rounded-lg hover:bg-slate-800 transition-colors"
-        >
+        <button onClick={onExit}
+          className="text-slate-500 hover:text-white text-xs px-2.5 py-1 rounded-lg hover:bg-slate-800 transition-colors">
           Esc 나가기
         </button>
       </div>
 
       {/* 3줄 */}
       <div className="flex flex-col gap-2 w-full max-w-md">
-        <RowCard entry={pastEntry} role="past" />
-        <RowCard entry={currEntry} role="current" />
-        <RowCard entry={nextEntry} role="next" />
+        <RowCard entry={pastEntry} role="past" resultField={resultField} config={config}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+        <RowCard entry={currEntry} role="current" resultField={resultField} config={config}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+        <RowCard entry={nextEntry} role="next" resultField={resultField} config={config}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
       </div>
 
       {/* 단축키 안내 */}

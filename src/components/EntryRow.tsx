@@ -217,8 +217,14 @@ function ExpandingTextarea({
 export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
   const focusedField = useRef<string | null>(null)
   const [local, setLocal]       = useState(entry)
-  const latestLocal             = useRef(entry)   // tracks latest local value synchronously (prevents stale-closure in handleTextBlur)
+  const latestLocal             = useRef(entry)
   const originalEpisode         = useRef(entry.episode)
+
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [noteEdit, setNoteEdit] = useState('')
+  const [notePos, setNotePos]   = useState<{ top: number; left: number } | null>(null)
+  const noteIconRef             = useRef<HTMLSpanElement>(null)
+  const noteAreaRef             = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setLocal(prev => {
@@ -229,6 +235,35 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       return next
     })
   }, [entry])
+
+  const openNote = () => {
+    if (!noteIconRef.current) return
+    const r = noteIconRef.current.getBoundingClientRect()
+    setNotePos({ top: r.bottom + 6, left: r.left })
+    setNoteEdit(local.note ?? '')
+    setNoteOpen(true)
+    setTimeout(() => noteAreaRef.current?.focus(), 0)
+  }
+
+  const saveNote = () => {
+    const newNote = noteEdit.trim() || null
+    if (newNote !== (local.note ?? null)) {
+      const updated = { ...local, note: newNote }
+      latestLocal.current = updated
+      setLocal(updated)
+      save(updated)
+    }
+    setNoteOpen(false)
+  }
+
+  const deleteNote = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const updated = { ...local, note: null }
+    latestLocal.current = updated
+    setLocal(updated)
+    save(updated)
+    setNoteOpen(false)
+  }
 
   const save = (updated: typeof local) => {
     const orig = originalEpisode.current
@@ -355,14 +390,19 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
               }}
               onBlur={handleTextBlur}
             />
-            {local.note && (
-              <span
-                title={local.note}
-                className="text-slate-400 hover:text-slate-600 cursor-default text-xs shrink-0 leading-none"
-              >
-                ✎
-              </span>
-            )}
+            <span
+              ref={noteIconRef}
+              onClick={openNote}
+              title={local.note ? '메모 보기/편집' : '메모 추가'}
+              className={[
+                'cursor-pointer text-xs shrink-0 leading-none transition-colors',
+                local.note
+                  ? 'text-amber-500 hover:text-amber-600'
+                  : 'text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100',
+              ].join(' ')}
+            >
+              ✎
+            </span>
           </div>
           {local.target && (
             <span className={[
@@ -499,6 +539,37 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
         <div className="font-medium text-slate-500">{local.last_editor}</div>
         <div>{ts}</div>
       </td>
+
+      {/* 메모 팝오버 */}
+      {noteOpen && notePos && createPortal(
+        <div
+          style={{ position: 'fixed', top: notePos.top, left: notePos.left, zIndex: 9999 }}
+          className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64"
+        >
+          <textarea
+            ref={noteAreaRef}
+            value={noteEdit}
+            onChange={e => setNoteEdit(e.target.value)}
+            onBlur={saveNote}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNote() }
+              if (e.key === 'Escape') { e.stopPropagation(); setNoteOpen(false) }
+            }}
+            placeholder="메모 입력... (Enter 저장, Shift+Enter 줄바꿈)"
+            rows={3}
+            className="w-full text-xs text-slate-700 border border-slate-200 rounded-lg p-2 outline-none focus:border-blue-300 resize-none placeholder-slate-300"
+          />
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-[10px] text-slate-400">Enter 저장 · Shift+Enter 줄바꿈</span>
+            {local.note && (
+              <button onMouseDown={deleteNote} className="text-[10px] text-red-400 hover:text-red-600">
+                삭제
+              </button>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </tr>
   )
 }
