@@ -45,6 +45,10 @@ export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
     pw.document.body.style.margin     = '0'
     pw.document.body.style.padding    = '0'
     pw.document.body.style.background = '#020617'
+    pw.document.body.style.transition = 'opacity 0.15s ease'
+
+    pw.addEventListener('blur',  () => { pw.document.body.style.opacity = '0.35' })
+    pw.addEventListener('focus', () => { pw.document.body.style.opacity = '1' })
 
     pw.addEventListener('pagehide', () => {
       readyRef.current = false
