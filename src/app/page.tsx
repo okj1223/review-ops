@@ -136,8 +136,10 @@ export default function HomePage() {
   const filteredInsightEntries = useMemo(() => {
     const fromRaw = insightEpisodeFrom.trim()
     const toRaw = insightEpisodeTo.trim()
-    const fromNum = fromRaw ? Number(fromRaw) : null
-    const toNum = toRaw ? Number(toRaw) : null
+    const fromParsed = fromRaw ? Number(fromRaw) : null
+    const toParsed = toRaw ? Number(toRaw) : null
+    const fromNum = fromParsed !== null && Number.isFinite(fromParsed) ? Math.max(0, fromParsed) : null
+    const toNum = toParsed !== null && Number.isFinite(toParsed) ? Math.max(0, toParsed) : null
     const rangeStart = fromNum !== null && toNum !== null ? Math.min(fromNum, toNum) : fromNum
     const rangeEnd = fromNum !== null && toNum !== null ? Math.max(fromNum, toNum) : toNum
     const opQ = insightOperatorSearch.trim().toLowerCase()
@@ -311,6 +313,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="number"
+                min={0}
                 value={insightEpisodeFrom}
                 onChange={e => setInsightEpisodeFrom(e.target.value)}
                 placeholder="에피소드 시작"
@@ -319,6 +322,7 @@ export default function HomePage() {
               <span className="text-slate-300 text-xs">~</span>
               <input
                 type="number"
+                min={0}
                 value={insightEpisodeTo}
                 onChange={e => setInsightEpisodeTo(e.target.value)}
                 placeholder="에피소드 끝"

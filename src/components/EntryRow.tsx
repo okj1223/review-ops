@@ -315,8 +315,15 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
   }
 
   const handleTextBlur = () => {
+    const activeField = focusedField.current
     focusedField.current = null
-    const latest = latestLocal.current
+    let latest = latestLocal.current
+    if (activeField === 'episode') {
+      const rawEpisode = String(latest.episode ?? '').trim()
+      const parsed = Number(rawEpisode)
+      const normalizedEpisode = Number.isFinite(parsed) ? (parsed < 0 ? '0' : rawEpisode) : '0'
+      latest = { ...latest, episode: normalizedEpisode }
+    }
     const withComputed: EntryWithComputed = { ...latest, ...computeRow(latest as Entry) }
     setLocal(withComputed)
     latestLocal.current = withComputed
@@ -419,6 +426,9 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
         <div className="flex flex-col items-start gap-0.5">
           <div className="flex items-center gap-1">
             <input
+              type="number"
+              min={0}
+              step="any"
               className="w-16 text-xs font-mono border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-1 bg-transparent text-slate-800"
               value={local.episode}
               onFocus={() => { focusedField.current = 'episode' }}

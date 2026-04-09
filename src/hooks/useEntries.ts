@@ -4,6 +4,14 @@ import { supabase } from '@/lib/supabase'
 import { computeRow } from '@/lib/logic'
 import type { Entry, EntryWithComputed } from '@/lib/types'
 
+function normalizeEpisode(input: string): string {
+  const raw = input.trim()
+  if (!raw) throw new Error('에피소드를 입력하세요')
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) throw new Error('에피소드는 숫자여야 합니다')
+  return parsed < 0 ? '0' : raw
+}
+
 function episodeSort(a: Entry, b: Entry): number {
   if (a.sort_order != null && b.sort_order != null) return a.sort_order - b.sort_order
   const na = parseFloat(a.episode)
@@ -49,16 +57,23 @@ export function useEntries(workDayId: string, workDate: string) {
     entry: Omit<Partial<Entry>, 'work_day_id' | 'work_date' | 'episode'> & { work_date: string; episode: string },
     editorName: string
   ) => {
+    const normalizedEpisode = normalizeEpisode(entry.episode)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { conflict: _c, action: _a, ...dbEntry } = entry as Record<string, unknown>
     await supabase.from('entries').upsert(
-      { ...dbEntry, work_day_id: workDayId, last_editor: editorName, last_updated: new Date().toISOString() },
+      {
+        ...dbEntry,
+        episode: normalizedEpisode,
+        work_day_id: workDayId,
+        last_editor: editorName,
+        last_updated: new Date().toISOString(),
+      },
       { onConflict: 'work_day_id,episode' }
     )
     const id = (entry as { id?: string }).id
     if (id) {
       setEntries(prev => prev.map(e =>
-        e.id === id ? { ...e, ...(entry as EntryWithComputed) } : e
+        e.id === id ? { ...e, ...(entry as EntryWithComputed), episode: normalizedEpisode } : e
       ))
     }
   }
@@ -69,11 +84,12 @@ export function useEntries(workDayId: string, workDate: string) {
     data: Partial<Entry>,
     editorName: string
   ) => {
+    const normalizedEpisode = normalizeEpisode(newEpisode)
     await supabase.from('entries').delete().eq('id', oldId)
     await supabase.from('entries').insert({
       work_day_id:     workDayId,
       work_date:       workDate,
-      episode:         newEpisode,
+      episode:         normalizedEpisode,
       target:          data.target          ?? '',
       task:            data.task            ?? '',
       r1_result:       data.r1_result       ?? '', r1_pick:   data.r1_pick   ?? '', r1_place:   data.r1_place   ?? '', r1_frame3: data.r1_frame3 ?? '',
@@ -88,8 +104,9 @@ export function useEntries(workDayId: string, workDate: string) {
   }
 
   const addRow = async (episode: string, editorName: string, operator?: string) => {
+    const normalizedEpisode = normalizeEpisode(episode)
     const { data, error } = await supabase.from('entries').insert({
-      work_day_id: workDayId, work_date: workDate, episode,
+      work_day_id: workDayId, work_date: workDate, episode: normalizedEpisode,
       target: operator !== undefined ? operator : editorName,
       task: '',
       r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
@@ -103,7 +120,7 @@ export function useEntries(workDayId: string, workDate: string) {
     if (data && !error) {
       const enriched: EntryWithComputed = { ...(data as Entry), ...computeRow(data as Entry) }
       setEntries(prev => {
-        const without = prev.filter(e => !(e.work_day_id === workDayId && e.episode === episode))
+        const without = prev.filter(e => !(e.work_day_id === workDayId && e.episode === normalizedEpisode))
         return [...without, enriched].sort(episodeSort)
       })
     }
@@ -112,7 +129,7 @@ export function useEntries(workDayId: string, workDate: string) {
   const addRows = async (episodes: string[], editorName: string) => {
     const now = new Date().toISOString()
     const rows = episodes.map(episode => ({
-      work_day_id: workDayId, work_date: workDate, episode,
+      work_day_id: workDayId, work_date: workDate, episode: normalizeEpisode(episode),
       target: editorName,
       task: '',
       r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
@@ -133,6 +150,7 @@ export function useEntries(workDayId: string, workDate: string) {
   }
 
   const deleteRows = async (episodeFrom: number, episodeTo: number) => {
+    if (episodeFrom < 0 || episodeTo < 0) throw new Error('에피소드는 0 이상만 가능합니다')
     const toDelete = entries.filter(e => {
       const n = parseFloat(e.episode)
       return !isNaN(n) && n >= episodeFrom && n <= episodeTo
@@ -147,6 +165,7 @@ export function useEntries(workDayId: string, workDate: string) {
   }
 
   const assignTaskRange = async (episodeFrom: number, episodeTo: number, task: string, editorName: string) => {
+    if (episodeFrom < 0 || episodeTo < 0) throw new Error('에피소드는 0 이상만 가능합니다')
     const toUpdate = entries.filter(e => {
       const n = parseFloat(e.episode)
       return !isNaN(n) && n >= episodeFrom && n <= episodeTo && (e.task ?? '') !== task

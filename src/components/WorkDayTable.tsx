@@ -50,11 +50,19 @@ function InsertRow({ totalCols, r1Name, r2Name, onConfirm, onCancel }: {
           <span className="text-xs text-blue-500 font-medium">에피소드 번호 삽입:</span>
           <input
             autoFocus
-            type="text"
+            type="number"
+            min={0}
             value={val}
             onChange={e => setVal(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && val.trim()) { onConfirm(val.trim(), operator); setVal(''); setOperator('') }
+              if (e.key === 'Enter' && val.trim()) {
+                const parsed = Number(val)
+                if (Number.isFinite(parsed)) {
+                  onConfirm(parsed < 0 ? '0' : val.trim(), operator)
+                  setVal('')
+                  setOperator('')
+                }
+              }
               if (e.key === 'Escape') onCancel()
             }}
             placeholder="번호 입력 후 Enter"
@@ -195,23 +203,32 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     updates: Partial<EntryWithComputed> & { work_date: string; episode: string },
     originalEpisode?: string
   ) => {
+    const rawEpisode = updates.episode.trim()
+    const parsedEpisode = Number(rawEpisode)
+    if (!Number.isFinite(parsedEpisode)) return
+    const normalizedEpisode = parsedEpisode < 0 ? '0' : rawEpisode
+    const normalizedUpdates = normalizedEpisode === updates.episode
+      ? updates
+      : { ...updates, episode: normalizedEpisode }
+
     // 저장 전 현재 상태를 히스토리에 push (entry rename 제외)
-    if (updates.id && !originalEpisode) {
-      const current = entries.find(e => e.id === updates.id)
+    if (normalizedUpdates.id && !originalEpisode) {
+      const current = entries.find(e => e.id === normalizedUpdates.id)
       if (current) pushHistory(current)
     }
-    if (originalEpisode && originalEpisode !== updates.episode) {
-      await renameEpisode(updates.id!, updates.episode, updates as Partial<Entry>, editorName)
+    if (originalEpisode && originalEpisode !== normalizedUpdates.episode) {
+      await renameEpisode(normalizedUpdates.id!, normalizedUpdates.episode, normalizedUpdates as Partial<Entry>, editorName)
     } else {
-      await upsert(updates, editorName)
+      await upsert(normalizedUpdates, editorName)
     }
   }
 
   const handleAddRange = async () => {
     setRangeError('')
-    const from = parseInt(rangeFrom)
-    const to   = parseInt(rangeTo)
+    const from = parseInt(rangeFrom, 10)
+    const to   = parseInt(rangeTo, 10)
     if (isNaN(from) || isNaN(to)) { setRangeError('숫자를 입력하세요'); return }
+    if (from < 0 || to < 0)        { setRangeError('에피소드는 0 이상만 가능합니다'); return }
     if (from > to)                 { setRangeError('시작 번호가 끝 번호보다 큽니다'); return }
     if (to - from > 500)           { setRangeError('한 번에 최대 500개까지 추가 가능합니다'); return }
     setRangeLoading(true)
@@ -224,9 +241,10 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
 
   const handleDeleteRange = async () => {
     setDelError('')
-    const from = parseInt(delFrom)
-    const to   = parseInt(delTo)
+    const from = parseInt(delFrom, 10)
+    const to   = parseInt(delTo, 10)
     if (isNaN(from) || isNaN(to)) { setDelError('숫자를 입력하세요'); return }
+    if (from < 0 || to < 0)       { setDelError('에피소드는 0 이상만 가능합니다'); return }
     if (from > to)                 { setDelError('시작 번호가 끝 번호보다 큽니다'); return }
     if (!delConfirm) { setDelConfirm(true); return }
     setDelLoading(true)
@@ -240,11 +258,12 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const handleAssignTaskRange = async () => {
     setTaskError('')
     setTaskInfo('')
-    const from = parseInt(taskFrom)
-    const to   = parseInt(taskTo)
+    const from = parseInt(taskFrom, 10)
+    const to   = parseInt(taskTo, 10)
     const task = (rangeTask || effectiveTaskOptions[0] || '').trim()
     if (!task)                  { setTaskError('task 이름을 입력하세요'); return }
     if (isNaN(from) || isNaN(to)) { setTaskError('숫자를 입력하세요'); return }
+    if (from < 0 || to < 0)       { setTaskError('에피소드는 0 이상만 가능합니다'); return }
     if (from > to)                { setTaskError('시작 번호가 끝 번호보다 큽니다'); return }
 
     try {
@@ -533,6 +552,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           </select>
           <input
             type="number"
+            min={0}
             value={rangeFrom}
             onChange={e => setRangeFrom(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAddRange()}
@@ -542,6 +562,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           <span className="text-slate-400 text-sm">—</span>
           <input
             type="number"
+            min={0}
             value={rangeTo}
             onChange={e => setRangeTo(e.target.value)}
             placeholder="끝"
@@ -595,6 +616,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           </select>
           <input
             type="number"
+            min={0}
             value={taskFrom}
             onChange={e => setTaskFrom(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAssignTaskRange()}
@@ -604,6 +626,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           <span className="text-slate-400 text-sm">—</span>
           <input
             type="number"
+            min={0}
             value={taskTo}
             onChange={e => setTaskTo(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAssignTaskRange()}
@@ -626,6 +649,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">범위 삭제</span>
           <input
             type="number"
+            min={0}
             value={delFrom}
             onChange={e => { setDelFrom(e.target.value); setDelConfirm(false) }}
             onKeyDown={e => e.key === 'Enter' && handleDeleteRange()}
@@ -635,6 +659,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           <span className="text-slate-400 text-sm">—</span>
           <input
             type="number"
+            min={0}
             value={delTo}
             onChange={e => { setDelTo(e.target.value); setDelConfirm(false) }}
             placeholder="끝"
@@ -855,12 +880,18 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                 <td colSpan={TOTAL_COLS - 1} className="px-2 py-1">
                   <input
                     ref={newEpisodeRef}
+                    type="number"
+                    min={0}
                     className="text-sm text-slate-400 placeholder-slate-300 px-1 py-1 w-full focus:outline-none focus:text-slate-800"
                     placeholder="+ 에피소드 번호 직접 입력 후 Enter..."
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
-                        const val = (e.target as HTMLInputElement).value.trim()
-                        if (val) { addRow(val, editorName); (e.target as HTMLInputElement).value = '' }
+                        const raw = (e.target as HTMLInputElement).value.trim()
+                        const parsed = Number(raw)
+                        if (raw && Number.isFinite(parsed)) {
+                          void addRow(parsed < 0 ? '0' : raw, editorName)
+                          ;(e.target as HTMLInputElement).value = ''
+                        }
                       }
                     }}
                   />
