@@ -15,6 +15,7 @@ CREATE TABLE entries (
   work_date       DATE NOT NULL REFERENCES work_days(date) ON DELETE CASCADE,
   episode         TEXT NOT NULL,
   target          TEXT DEFAULT '',
+  task            TEXT DEFAULT '',
   r1_result       TEXT DEFAULT '',
   r1_pick         TEXT DEFAULT '',
   r1_place        TEXT DEFAULT '',
@@ -43,3 +44,6 @@ ALTER TABLE entries   ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "allow_all_work_days" ON work_days FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_entries"   ON entries   FOR ALL USING (true) WITH CHECK (true);
+
+-- 기존 환경 업데이트용
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS task TEXT DEFAULT '';

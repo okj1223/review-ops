@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { DEFAULT_CONFIG } from '@/lib/constants'
+import { DEFAULT_CONFIG, normalizeWorkDayConfig } from '@/lib/constants'
 import type { WorkDayConfig } from '@/lib/types'
 
 export function useAppSettings() {
@@ -14,19 +14,23 @@ export function useAppSettings() {
       .select('value')
       .eq('key', 'global')
       .single()
-    if (data?.value) setSettings(data.value as WorkDayConfig)
+    if (data?.value) setSettings(normalizeWorkDayConfig(data.value))
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchSettings() }, [fetchSettings])
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => { void fetchSettings() }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchSettings])
 
   const saveSettings = async (config: WorkDayConfig) => {
+    const normalized = normalizeWorkDayConfig(config)
     await supabase.from('app_settings').upsert({
       key: 'global',
-      value: config,
+      value: normalized,
       updated_at: new Date().toISOString(),
     })
-    setSettings(config)
+    setSettings(normalized)
   }
 
   return { settings, loading, saveSettings }

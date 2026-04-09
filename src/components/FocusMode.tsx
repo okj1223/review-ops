@@ -50,8 +50,10 @@ function findStartIdx(entries: EntryWithComputed[], reviewer: 'r1' | 'r2', direc
     const idx = entries.findIndex(e => !e[field])
     return idx === -1 ? 0 : idx
   } else {
-    const idx = entries.findIndex(e => !e[field])
-    return idx === -1 ? entries.length - 1 : idx
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (!entries[i][field]) return i
+    }
+    return entries.length - 1
   }
 }
 
@@ -87,7 +89,7 @@ function RowCard({ entry, role, resultField, results, shortcuts, noteValue, setN
         </span>
         <div className="flex items-center gap-2">
           {entry.note && !isMain && (
-            <span className="text-[10px] text-slate-500" title={entry.note}>✎</span>
+            <span className="text-[10px] text-slate-500" aria-label={entry.note ?? '메모 있음'}>✎</span>
           )}
           {val
             ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${palette(val).badge}`}>{val}</span>
@@ -242,7 +244,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
         <div className="flex items-center gap-1 px-2 py-1">
           <button
             onClick={toggleReviewer}
-            title="R1/R2 전환 (Tab)"
+            aria-label="R1 또는 R2 전환"
             className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
               currentReviewer === 'r1'
                 ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
@@ -314,9 +316,9 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
         <span className="text-slate-500 text-xs">{reviewerName}</span>
         <span className="text-slate-400 text-xs font-medium">{progress}</span>
         <div className="flex items-center gap-0.5">
-          <button onClick={() => handleNavigate(-1)} title="이전 행 (↑)"
+          <button onClick={() => handleNavigate(-1)} aria-label="이전 행"
             className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors">↑</button>
-          <button onClick={() => handleNavigate(1)} title="다음 행 (↓)"
+          <button onClick={() => handleNavigate(1)} aria-label="다음 행"
             className="text-slate-500 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors">↓</button>
         </div>
         <button onClick={onExit}
@@ -327,25 +329,12 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
 
       {/* 3줄 */}
       <div className="flex flex-col gap-2 w-full max-w-md">
-        {direction === 'up' ? (
-          <>
-            <RowCard entry={nextEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-            <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-            <RowCard entry={pastEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-          </>
-        ) : (
-          <>
-            <RowCard entry={pastEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-            <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-            <RowCard entry={nextEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
-              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-          </>
-        )}
+        <RowCard entry={pastEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+        <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+        <RowCard entry={nextEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
+          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
       </div>
 
       {/* 단축키 안내 */}

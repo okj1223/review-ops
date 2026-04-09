@@ -116,6 +116,11 @@ export function SettingsModal({ settings, onSave, onClose }: Props) {
                 <p className="text-xs font-semibold text-slate-600">Route 옵션</p>
                 <TagList items={draft.dropdowns.route} onChange={v => updateDropdown('route', v)} />
               </section>
+              <section className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-slate-600">Task 옵션</p>
+                <p className="text-[11px] text-slate-400">여기서 삭제해도 기존 워크스페이스에 저장된 task 값은 유지됩니다.</p>
+                <TagList items={draft.dropdowns.task} onChange={v => updateDropdown('task', v)} />
+              </section>
             </>
           )}
 

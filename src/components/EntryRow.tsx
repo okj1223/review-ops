@@ -15,6 +15,7 @@ import {
   STICKY_COL_WIDTH,
   STICKY_CONTROL_LEFT,
   STICKY_EPISODE_LEFT,
+  TASK_COL_WIDTH,
 } from '@/lib/tableLayout'
 import type { Entry, EntryWithComputed, WorkDayConfig, FrameKey } from '@/lib/types'
 
@@ -24,6 +25,7 @@ interface Props {
   editorName: string
   r1Name: string
   r2Name: string
+  taskOptions: string[]
   config?: WorkDayConfig
   onSave: (
     updates: Partial<EntryWithComputed> & { work_date: string; episode: string },
@@ -66,6 +68,8 @@ const RESULT_BG: Record<string, string> = {
 }
 
 const RESULT_SHORTCUT: Record<string, string> = { c: 'Clean', d: 'Dirty', f: 'Fail', n: 'None' }
+const VIEWPORT_MARGIN = 12
+const NOTE_POPOVER_WIDTH = 256
 
 function ResultSelect({
   value, onChange, disabled, options,
@@ -92,13 +96,19 @@ function ResultSelect({
     const r = btnRef.current.getBoundingClientRect()
     const spaceBelow = window.innerHeight - r.bottom
     const openUp = spaceBelow < 160
-    setPos({ top: openUp ? r.top : r.bottom, left: r.left, openUp })
+    const dropdownWidth = Math.max(r.width, 80)
+    const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - dropdownWidth - VIEWPORT_MARGIN)
+    const left = Math.min(
+      Math.max(r.left, VIEWPORT_MARGIN),
+      maxLeft
+    )
+    setPos({ top: openUp ? r.top : r.bottom, left, openUp })
     setOpen(p => !p)
   }
 
   if (disabled) {
     return (
-      <span className={['w-20 inline-block text-xs font-medium rounded px-1 py-1 opacity-30', value ? RESULT_BG[value] ?? '' : ''].join(' ')}>
+      <span className={['mx-auto block w-[calc(100%-2px)] max-w-full truncate text-xs font-medium rounded px-1 py-1 opacity-30', value ? RESULT_BG[value] ?? '' : ''].join(' ')}>
         {value || ''}
       </span>
     )
@@ -114,7 +124,7 @@ function ResultSelect({
         zIndex: 9999,
       }}
       ref={dropdownRef}
-      className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden min-w-[80px]"
+      className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden min-w-[80px] max-w-[calc(100vw-24px)]"
     >
       <button onClick={() => { onChange(''); setOpen(false) }}
         className="w-full text-left px-2 py-1 text-xs text-slate-400 hover:bg-slate-50">—</button>
@@ -129,7 +139,7 @@ function ResultSelect({
   )
 
   return (
-    <div className="relative w-20">
+    <div className="relative w-full min-w-0">
       <button
         ref={btnRef}
         tabIndex={0}
@@ -144,7 +154,7 @@ function ResultSelect({
           if (e.key === 'Escape') setOpen(false)
         }}
         className={[
-          'w-full text-left text-xs font-medium rounded px-1 py-1 border focus:outline-none focus:ring-1 focus:ring-blue-400 transition-colors',
+          'mx-auto block w-[calc(100%-2px)] max-w-full truncate text-left text-xs font-medium rounded px-1 py-1 border focus:outline-none focus:ring-1 focus:ring-blue-400 transition-colors',
           value ? RESULT_BG[value] ?? 'border-slate-200' : 'border-slate-200 text-slate-300',
         ].join(' ')}
       >
@@ -172,7 +182,7 @@ function FrameInput({
       disabled={disabled}
       placeholder={placeholder}
       className={[
-        'w-16 text-xs text-center rounded px-1 py-1 border border-transparent placeholder-slate-300',
+        'mx-auto block w-[3rem] min-w-0 max-w-full box-border text-xs text-center rounded px-1 py-1 border border-transparent placeholder-slate-300',
         'focus:outline-none focus:border-blue-300 focus:bg-blue-50 bg-transparent transition-colors',
         disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-200',
       ].join(' ')}
@@ -192,7 +202,7 @@ function SelectCell({
       onChange={e => onChange(e.target.value)}
       disabled={disabled}
       className={[
-        `${width} text-xs rounded px-1 py-1 border border-transparent`,
+        `${width} block min-w-0 max-w-full text-xs rounded px-1 py-1 border border-transparent`,
         'focus:outline-none focus:border-blue-300 focus:bg-blue-50 bg-transparent cursor-pointer transition-colors',
         disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-200',
       ].join(' ')}
@@ -219,7 +229,7 @@ function ExpandingTextarea({
       onBlur={() => { setFocused(false); onBlur() }}
       disabled={disabled}
       className={[
-        'w-44 text-xs border border-transparent rounded px-1 py-1 bg-transparent placeholder-slate-300 resize-none transition-all',
+        'w-full min-w-0 max-w-full text-xs border border-transparent rounded px-1 py-1 bg-transparent placeholder-slate-300 resize-none transition-all',
         'focus:outline-none focus:border-blue-300 focus:bg-blue-50',
         disabled ? 'opacity-30 cursor-not-allowed' : 'hover:border-slate-200',
       ].join(' ')}
@@ -227,7 +237,7 @@ function ExpandingTextarea({
   )
 }
 
-export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
+export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2Name, taskOptions, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
   void _editorName
   void r1Name
   void r2Name
@@ -255,7 +265,12 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
   const openNote = () => {
     if (!noteIconRef.current) return
     const r = noteIconRef.current.getBoundingClientRect()
-    setNotePos({ top: r.bottom + 6, left: r.left })
+    const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - NOTE_POPOVER_WIDTH - VIEWPORT_MARGIN)
+    const left = Math.min(
+      Math.max(r.left, VIEWPORT_MARGIN),
+      maxLeft
+    )
+    setNotePos({ top: r.bottom + 6, left })
     setNoteEdit(local.note ?? '')
     setNoteOpen(true)
     setTimeout(() => noteAreaRef.current?.focus(), 0)
@@ -326,6 +341,9 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
   }
 
   const hasConflict = !!local.conflict
+  const taskChoices = local.task && !taskOptions.includes(local.task)
+    ? [local.task, ...taskOptions]
+    : taskOptions
 
   const ts = local.last_updated
     ? new Date(local.last_updated).toLocaleString('ko-KR', {
@@ -335,7 +353,11 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
     : ''
 
   const cell = (extra = '') =>
-    `border-r border-slate-100 px-1.5 py-1 ${extra}`
+    `border-r border-slate-100 px-1.5 py-1 align-middle overflow-hidden ${extra}`
+  const compactCell = (extra = '') =>
+    `border-r border-slate-100 px-1 py-1 align-middle overflow-hidden ${extra}`
+  const frameCell = (extra = '') =>
+    `border-r border-slate-100 px-0.5 py-1 text-center align-middle overflow-hidden ${extra}`
 
   return (
     <tr
@@ -358,21 +380,21 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
       <td className={`border-r border-slate-100 sticky ${STICKY_CONTROL_LEFT} z-10 ${STICKY_COL_WIDTH} bg-white group-hover:bg-slate-50 p-0`}>
         <div className="flex flex-col items-center justify-center h-full w-full">
           <div
-            title="드래그해서 순서 변경"
+            aria-label="드래그해서 순서 변경"
             className="flex-1 w-full flex items-center justify-center text-slate-200 hover:text-slate-400 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-all text-[10px] leading-none select-none"
           >
             ⠿
           </div>
           <button
             onClick={onInsertBefore}
-            title="위에 행 삽입"
+            aria-label="위에 행 삽입"
             className="flex-1 w-full flex items-center justify-center text-slate-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all text-base font-bold leading-none"
           >
             +
           </button>
           <button
             onClick={onSetBanner}
-            title={isBannerHere ? '교차검수 배너 위치 (클릭 시 제거)' : '교차검수 시작 지점으로 설정'}
+            aria-label={isBannerHere ? '교차검수 배너 위치 제거' : '교차검수 시작 지점으로 설정'}
             className={[
               'flex-1 w-full flex items-center justify-center transition-all text-xs leading-none',
               isBannerHere
@@ -384,7 +406,7 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
           </button>
           <button
             onClick={onDelete}
-            title="행 삭제"
+            aria-label="행 삭제"
             className="flex-1 w-full flex items-center justify-center text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all text-sm font-bold leading-none"
           >
             ×
@@ -409,7 +431,7 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
             <span
               ref={noteIconRef}
               onClick={openNote}
-              title={local.note ? '메모 보기/편집' : '메모 추가'}
+              aria-label={local.note ? '메모 보기 또는 편집' : '메모 추가'}
               className={[
                 'cursor-pointer text-xs shrink-0 leading-none transition-colors',
                 local.note
@@ -436,18 +458,29 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
 
       {/* Action */}
       <td className={cell(`sticky ${STICKY_ACTION_LEFT} z-10 bg-white group-hover:bg-slate-50 ${ACTION_COL_WIDTH}`)}>
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${getActionStyle(local.action)}`}>
-          {local.action || '—'}
-        </span>
+        <div className="w-full overflow-hidden">
+          <span className={`inline-block max-w-full truncate text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${getActionStyle(local.action)}`}>
+            {local.action || '—'}
+          </span>
+        </div>
+      </td>
+
+      {/* Task */}
+      <td className={cell(TASK_COL_WIDTH)}>
+        <SelectCell
+          value={local.task ?? ''}
+          onChange={v => handleSelect('task', v)}
+          options={taskChoices}
+        />
       </td>
 
       {/* R1 Result */}
-      <td className={cell('bg-blue-50/50')}>
+      <td className={compactCell('bg-blue-50/50')}>
         <ResultSelect value={local.r1_result} onChange={v => handleSelect('r1_result', v)} options={config.dropdowns.result} />
       </td>
       {/* R1 frames */}
       {config.frames.map(frame => (
-        <td key={`r1_${frame.key}`} className={cell('bg-blue-50/50')}>
+        <td key={`r1_${frame.key}`} className={frameCell('bg-blue-50/50')}>
           <FrameInput
             value={getFrame('r1', frame.key)}
             onFocus={() => { focusedField.current = `r1_${frame.key}` }}
@@ -458,12 +491,12 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
       ))}
 
       {/* R2 Result */}
-      <td className={cell('bg-emerald-50/50')}>
+      <td className={compactCell('bg-emerald-50/50')}>
         <ResultSelect value={local.r2_result} onChange={v => handleSelect('r2_result', v)} options={config.dropdowns.result} />
       </td>
       {/* R2 frames */}
       {config.frames.map(frame => (
-        <td key={`r2_${frame.key}`} className={cell('bg-emerald-50/50')}>
+        <td key={`r2_${frame.key}`} className={frameCell('bg-emerald-50/50')}>
           <FrameInput
             value={getFrame('r2', frame.key)}
             onFocus={() => { focusedField.current = `r2_${frame.key}` }}
@@ -487,12 +520,12 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
       </td>
 
       {/* Final Result */}
-      <td className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
+      <td className={compactCell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
         <ResultSelect value={local.final_result} onChange={v => handleSelect('final_result', v)} disabled={!hasConflict} options={config.dropdowns.result} />
       </td>
       {/* Final frames */}
       {config.frames.map(frame => (
-        <td key={`final_${frame.key}`} className={cell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
+        <td key={`final_${frame.key}`} className={frameCell(hasConflict ? 'bg-amber-50/60' : 'bg-slate-50/50')}>
           <FrameInput
             value={getFrame('final', frame.key)}
             onFocus={() => { focusedField.current = `final_${frame.key}` }}
@@ -561,7 +594,7 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
       {noteOpen && notePos && createPortal(
         <div
           style={{ position: 'fixed', top: notePos.top, left: notePos.left, zIndex: 9999 }}
-          className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64"
+          className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-64 max-w-[calc(100vw-24px)]"
         >
           <textarea
             ref={noteAreaRef}

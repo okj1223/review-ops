@@ -21,6 +21,7 @@ import {
   STICKY_COL_WIDTH,
   STICKY_CONTROL_LEFT,
   STICKY_EPISODE_LEFT,
+  TASK_COL_WIDTH,
 } from '@/lib/tableLayout'
 import { supabase } from '@/lib/supabase'
 import type { Entry, EntryWithComputed, WorkDayConfig } from '@/lib/types'
@@ -32,6 +33,7 @@ interface Props {
   r2Name: string
   editorName: string
   config?: WorkDayConfig
+  taskOptions?: string[]
   initialBannerEpisode?: string | null
 }
 
@@ -77,8 +79,8 @@ function InsertRow({ totalCols, r1Name, r2Name, onConfirm, onCancel }: {
 type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 type HistoryItem = { prev: Entry; editor: string }
 
-export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, initialBannerEpisode = null }: Props) {
-  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries } = useEntries(workDayId, workDate)
+export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, taskOptions = [], initialBannerEpisode = null }: Props) {
+  const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries, assignTaskRange } = useEntries(workDayId, workDate)
   const [draggedId, setDraggedId]   = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [focusSetup, setFocusSetup] = useState(false)
@@ -109,6 +111,12 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [rangeOperator, setRangeOperator] = useState(r1Name)
   const [rangeLoading, setRangeLoading]   = useState(false)
   const [rangeError, setRangeError]       = useState('')
+  const [taskFrom, setTaskFrom]           = useState('')
+  const [taskTo, setTaskTo]               = useState('')
+  const [rangeTask, setRangeTask]         = useState('')
+  const [taskLoading, setTaskLoading]     = useState(false)
+  const [taskError, setTaskError]         = useState('')
+  const [taskInfo, setTaskInfo]           = useState('')
 
   const [delFrom, setDelFrom]             = useState('')
   const [delTo, setDelTo]                 = useState('')
@@ -229,12 +237,36 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     setDelConfirm(false)
   }
 
+  const handleAssignTaskRange = async () => {
+    setTaskError('')
+    setTaskInfo('')
+    const from = parseInt(taskFrom)
+    const to   = parseInt(taskTo)
+    const task = (rangeTask || effectiveTaskOptions[0] || '').trim()
+    if (!task)                  { setTaskError('task 이름을 입력하세요'); return }
+    if (isNaN(from) || isNaN(to)) { setTaskError('숫자를 입력하세요'); return }
+    if (from > to)                { setTaskError('시작 번호가 끝 번호보다 큽니다'); return }
+
+    try {
+      setTaskLoading(true)
+      const updated = await assignTaskRange(from, to, task, editorName)
+      setTaskInfo(updated > 0 ? `${updated}개 에피소드에 task 적용` : '변경할 대상이 없습니다')
+      setTaskLoading(false)
+    } catch (err) {
+      setTaskLoading(false)
+      const msg = err instanceof Error ? err.message : 'task 일괄 적용에 실패했습니다'
+      setTaskError(msg)
+    }
+  }
+
   // ── Excel 다운로드 ───────────────────────────────────────────
   const handleExport = () => {
     const frameKeys = config.frames.map(f => f.key)
 
     const headerRow = [
       'Episode',
+      'Operator',
+      'Task',
       `${r1Name} Result`,
       ...config.frames.map(f => `${r1Name} ${f.label}`),
       `${r2Name} Result`,
@@ -254,6 +286,8 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     const dataRows = entries.map(e => {
       const row: (string | undefined)[] = [
         e.episode,
+        e.target,
+        e.task ?? '',
         e.r1_result,
         ...frameKeys.map(k => (e as unknown as Record<string, string>)[`r1_${k}`] ?? ''),
         e.r2_result,
@@ -277,6 +311,8 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     // 컬럼 너비 설정
     const fixedWidths = [
       { wch: 10 }, // Episode
+      { wch: 14 }, // Operator
+      { wch: 20 }, // Task
       { wch: 10 }, // R1 Result
       ...config.frames.map(() => ({ wch: 10 })),
       { wch: 10 }, // R2 Result
@@ -326,19 +362,49 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const needsActionEntries = entries.filter(e =>
     e.action && e.action !== 'OK' && e.action !== 'Resolved' && e.action !== 'Ready to review'
   )
+  const effectiveTaskOptions = Array.from(new Set(
+    taskOptions.map(v => v.trim()).filter(Boolean)
+  ))
 
   // 동적 헤더
-  const headers: { label: string; group?: GroupKey; sticky?: boolean; stickyLeft?: string; widthClass?: string }[] = [
+  const headers: {
+    label: string
+    group?: GroupKey
+    sticky?: boolean
+    stickyLeft?: string
+    widthClass?: string
+    compactTop?: string
+    compactBottom?: string
+  }[] = [
     { label: '',        group: 'ctrl',     sticky: true, stickyLeft: STICKY_CONTROL_LEFT, widthClass: STICKY_COL_WIDTH },
     { label: 'Episode',                    sticky: true, stickyLeft: STICKY_EPISODE_LEFT, widthClass: EPISODE_COL_WIDTH },
     { label: 'Action',  group: 'computed', sticky: true, stickyLeft: STICKY_ACTION_LEFT, widthClass: ACTION_COL_WIDTH },
+    { label: 'Task',    group: 'computed', widthClass: TASK_COL_WIDTH },
     { label: `${r1Name} Result`, group: 'r1', widthClass: RESULT_COL_WIDTH },
-    ...config.frames.map(f => ({ label: `${r1Name} ${f.label}`, group: 'r1' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    ...config.frames.map(f => ({
+      label: `${r1Name} ${f.label}`,
+      group: 'r1' as GroupKey,
+      widthClass: FRAME_COL_WIDTH,
+      compactTop: r1Name,
+      compactBottom: f.label,
+    })),
     { label: `${r2Name} Result`, group: 'r2', widthClass: RESULT_COL_WIDTH },
-    ...config.frames.map(f => ({ label: `${r2Name} ${f.label}`, group: 'r2' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    ...config.frames.map(f => ({
+      label: `${r2Name} ${f.label}`,
+      group: 'r2' as GroupKey,
+      widthClass: FRAME_COL_WIDTH,
+      compactTop: r2Name,
+      compactBottom: f.label,
+    })),
     { label: 'Conflict', group: 'computed', widthClass: CONFLICT_COL_WIDTH },
     { label: 'Final Result', group: 'final', widthClass: RESULT_COL_WIDTH },
-    ...config.frames.map(f => ({ label: `Final ${f.label}`, group: 'final' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    ...config.frames.map(f => ({
+      label: `Final ${f.label}`,
+      group: 'final' as GroupKey,
+      widthClass: FRAME_COL_WIDTH,
+      compactTop: 'Final',
+      compactBottom: f.label,
+    })),
     { label: 'Reason Code', widthClass: REASON_CODE_COL_WIDTH },
     { label: 'Reason Detail', widthClass: DETAIL_COL_WIDTH },
     { label: 'Response Detail', widthClass: DETAIL_COL_WIDTH },
@@ -496,7 +562,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
             <button
               onClick={handleUndo}
               disabled={myUndoCount === 0}
-              title={myUndoCount > 0 ? `내 변경 ${myUndoCount}단계 되돌리기 (Ctrl+Z)` : '되돌릴 내용 없음'}
+              aria-label={myUndoCount > 0 ? `내 변경 ${myUndoCount}단계 되돌리기` : '되돌릴 내용 없음'}
               className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300"
             >
               ↩ 되돌리기{myUndoCount > 0 && <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-1.5 font-bold">{myUndoCount}</span>}
@@ -514,6 +580,45 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
               ⊙ 집중모드
             </button>
           </div>
+        </div>
+
+        {/* task 범위 일괄 적용 */}
+        <div className="flex items-center gap-2 flex-wrap border-t border-slate-100 pt-2">
+          <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Task 일괄</span>
+          <select
+            value={rangeTask}
+            onChange={e => setRangeTask(e.target.value)}
+            className="w-48 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white text-slate-900"
+          >
+            <option value="">Task 선택</option>
+            {effectiveTaskOptions.map(task => <option key={task} value={task}>{task}</option>)}
+          </select>
+          <input
+            type="number"
+            value={taskFrom}
+            onChange={e => setTaskFrom(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAssignTaskRange()}
+            placeholder="시작"
+            className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white text-slate-900"
+          />
+          <span className="text-slate-400 text-sm">—</span>
+          <input
+            type="number"
+            value={taskTo}
+            onChange={e => setTaskTo(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAssignTaskRange()}
+            placeholder="끝"
+            className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 bg-white text-slate-900"
+          />
+          <button
+            onClick={handleAssignTaskRange}
+            disabled={taskLoading}
+            className="bg-indigo-600 text-white text-sm px-4 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {taskLoading ? '적용 중...' : 'Task 적용'}
+          </button>
+          {taskError && <span className="text-xs text-red-500">{taskError}</span>}
+          {taskInfo && <span className="text-xs text-emerald-600">{taskInfo}</span>}
         </div>
 
         {/* 범위 삭제 */}
@@ -645,12 +750,20 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                     key={`sticky_${h.label}_${i}`}
                     className={[
                       'px-2 py-2.5 text-xs font-semibold text-slate-600 text-left whitespace-nowrap border-r border-slate-200',
+                      h.compactTop ? 'text-center whitespace-normal leading-tight break-keep px-1 py-1.5' : '',
                       h.widthClass ?? '',
                       h.sticky ? `sticky ${h.stickyLeft} z-20` : 'z-10',
                       h.group ? groupBg[h.group] : 'bg-slate-100',
                     ].join(' ')}
                   >
-                    {h.label}
+                    {h.compactTop ? (
+                      <span className="block leading-tight">
+                        <span className="block text-[10px] font-bold text-slate-500">{h.compactTop}</span>
+                        <span className="block text-[11px] font-semibold text-slate-700">{h.compactBottom}</span>
+                      </span>
+                    ) : (
+                      h.label
+                    )}
                   </th>
                 ))}
               </tr>
@@ -691,18 +804,18 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                               onClick={() => { const ni = crossStartIdx - 1; if (ni >= 0) saveBannerEpisode(entries[ni].episode) }}
                               disabled={crossStartIdx <= 0}
                               className="text-violet-400 hover:text-violet-600 disabled:opacity-30 px-1 text-xs"
-                              title="위로 이동"
+                              aria-label="배너를 위로 이동"
                             >▲</button>
                             <button
                               onClick={() => { const ni = crossStartIdx + 1; if (ni < entries.length) saveBannerEpisode(entries[ni].episode) }}
                               disabled={crossStartIdx >= entries.length - 1}
                               className="text-violet-400 hover:text-violet-600 disabled:opacity-30 px-1 text-xs"
-                              title="아래로 이동"
+                              aria-label="배너를 아래로 이동"
                             >▼</button>
                             <button
                               onClick={() => saveBannerEpisode(null)}
                               className="text-violet-300 hover:text-red-400 px-1 text-xs"
-                              title="배너 제거"
+                              aria-label="배너 제거"
                             >×</button>
                           </div>
                           <span className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">⚑ 교차검수 시작 지점</span>
@@ -718,6 +831,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                     editorName={editorName}
                     r1Name={r1Name}
                     r2Name={r2Name}
+                    taskOptions={effectiveTaskOptions}
                     config={config}
                     onSave={handleSave}
                     onInsertBefore={() => setInsertBeforeId(entry.id)}

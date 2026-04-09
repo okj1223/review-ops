@@ -9,6 +9,7 @@ export interface DropdownConfig {
   result: string[]
   reason_code: string[]
   route: string[]
+  task: string[]
 }
 
 export interface WorkDayConfig {
@@ -33,6 +34,7 @@ export interface Entry {
   work_date: string
   episode: string
   target: string
+  task?: string
   sort_order?: number | null
   r1_result: string
   r1_pick: string

@@ -47,6 +47,8 @@ export default function ArchivePage() {
   const [loading, setLoading] = useState(true)
 
   const [episodeSearch, setEpisodeSearch]   = useState('')
+  const [operatorSearch, setOperatorSearch] = useState('')
+  const [taskSearch, setTaskSearch]         = useState('')
   const [reviewerFilter, setReviewerFilter] = useState('')
   const [dateFrom, setDateFrom]             = useState(TWO_WEEKS)
   const [dateTo, setDateTo]                 = useState(TODAY)
@@ -55,7 +57,12 @@ export default function ArchivePage() {
   const [resultFilter, setResultFilter]     = useState<Set<string>>(new Set())
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (val: string) =>
-    setter(prev => { const s = new Set(prev); s.has(val) ? s.delete(val) : s.add(val); return s })
+    setter(prev => {
+      const s = new Set(prev)
+      if (s.has(val)) s.delete(val)
+      else s.add(val)
+      return s
+    })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -86,7 +93,10 @@ export default function ArchivePage() {
     setLoading(false)
   }, [dateFrom, dateTo])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => { void fetchData() }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchData])
 
   // Result 옵션 동적 도출 (effectiveResult 기준)
   const resultOptions = useMemo(() => {
@@ -98,6 +108,8 @@ export default function ArchivePage() {
   const filtered = useMemo(() => {
     return entries.filter(e => {
       if (episodeSearch && !e.episode.includes(episodeSearch)) return false
+      if (operatorSearch && !e.target.toLowerCase().includes(operatorSearch.toLowerCase())) return false
+      if (taskSearch && !(e.task ?? '').toLowerCase().includes(taskSearch.toLowerCase())) return false
       if (reviewerFilter) {
         const rf = reviewerFilter.toLowerCase()
         if (!e.r1_name.toLowerCase().includes(rf) && !e.r2_name.toLowerCase().includes(rf)) return false
@@ -120,12 +132,12 @@ export default function ArchivePage() {
       if (resultFilter.size > 0 && !resultFilter.has(effectiveResult(e))) return false
       return true
     })
-  }, [entries, episodeSearch, reviewerFilter, conflictFilter, actionFilter, resultFilter])
+  }, [entries, episodeSearch, operatorSearch, taskSearch, reviewerFilter, conflictFilter, actionFilter, resultFilter])
 
   const handleExport = () => {
-    const headers = ['날짜', '에피소드', 'R1', 'R2', 'R1 Result', 'R2 Result', 'Conflict', 'Action', 'Final Result', 'Reason Code', 'Reason Detail', 'Response Detail', 'Route', 'Last Editor', 'Last Updated']
+    const headers = ['날짜', '에피소드', 'Operator', 'Task', 'R1', 'R2', 'R1 Result', 'R2 Result', 'Conflict', 'Action', 'Final Result', 'Reason Code', 'Reason Detail', 'Response Detail', 'Route', 'Last Editor', 'Last Updated']
     const rows = filtered.map(e => [
-      e.work_date, e.episode, e.r1_name, e.r2_name,
+      e.work_date, e.episode, e.target, e.task ?? '', e.r1_name, e.r2_name,
       e.r1_result, e.r2_result, e.conflict, e.action,
       e.final_result, e.reason_code, e.reason_detail, e.response_detail,
       e.route, e.last_editor,
@@ -133,10 +145,10 @@ export default function ArchivePage() {
     ])
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
     ws['!cols'] = [
-      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-      { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 28 },
-      { wch: 12 }, { wch: 22 }, { wch: 40 }, { wch: 40 },
-      { wch: 25 }, { wch: 14 }, { wch: 20 },
+      { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 20 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 10 },
+      { wch: 20 }, { wch: 28 }, { wch: 12 }, { wch: 22 },
+      { wch: 40 }, { wch: 40 }, { wch: 25 }, { wch: 14 }, { wch: 20 },
     ]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'archive')
@@ -170,6 +182,20 @@ export default function ArchivePage() {
             onChange={e => setEpisodeSearch(e.target.value)}
             placeholder="에피소드 검색"
             className="border border-slate-200 rounded-full px-2.5 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-blue-300"
+          />
+          <input
+            value={operatorSearch}
+            onChange={e => setOperatorSearch(e.target.value)}
+            placeholder="오퍼레이터"
+            className="border border-slate-200 rounded-full px-2.5 py-1 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
+          />
+          <input
+            type="text"
+            autoComplete="off"
+            value={taskSearch}
+            onChange={e => setTaskSearch(e.target.value)}
+            placeholder="task 검색"
+            className="border border-slate-200 rounded-full px-2.5 py-1 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
           />
           <input
             value={reviewerFilter}
@@ -234,7 +260,7 @@ export default function ArchivePage() {
           <table className="text-xs w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-slate-200 bg-slate-50">
-                {['날짜', '에피소드', 'R1', 'R2', 'R1 Result', 'R2 Result', 'Conflict', 'Action', 'Final', 'Reason Code'].map(h => (
+                {['날짜', '에피소드', 'Operator', 'Task', 'R1', 'R2', 'R1 Result', 'R2 Result', 'Conflict', 'Action', 'Final', 'Reason Code'].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -251,6 +277,8 @@ export default function ArchivePage() {
                       <Link href={`/${e.work_day_id}`} className="font-mono text-blue-600 hover:underline">{e.work_date}</Link>
                     </td>
                     <td className="px-3 py-2 font-mono font-bold text-slate-700 whitespace-nowrap">{e.episode}</td>
+                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.target || <span className="text-slate-300">—</span>}</td>
+                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.task || <span className="text-slate-300">—</span>}</td>
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.r1_name}</td>
                     <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.r2_name}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{e.r1_result || <span className="text-slate-300">—</span>}</td>

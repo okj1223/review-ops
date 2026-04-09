@@ -17,7 +17,7 @@ export function useEntries(workDayId: string, workDate: string) {
   const [loading, setLoading] = useState(true)
 
   const enrich = (rows: Entry[]): EntryWithComputed[] =>
-    [...rows].sort(episodeSort).map(r => ({ ...r, ...computeRow(r) }))
+    [...rows].sort(episodeSort).map(r => ({ ...r, task: r.task ?? '', ...computeRow(r) }))
 
   const fetchEntries = useCallback(async () => {
     const { data } = await supabase
@@ -29,7 +29,7 @@ export function useEntries(workDayId: string, workDate: string) {
   }, [workDayId])
 
   useEffect(() => {
-    fetchEntries()
+    const timeoutId = window.setTimeout(() => { void fetchEntries() }, 0)
 
     const channel = supabase
       .channel(`entries_${workDayId}`)
@@ -39,6 +39,7 @@ export function useEntries(workDayId: string, workDate: string) {
     const poll = setInterval(fetchEntries, 3000)
 
     return () => {
+      window.clearTimeout(timeoutId)
       supabase.removeChannel(channel)
       clearInterval(poll)
     }
@@ -74,6 +75,7 @@ export function useEntries(workDayId: string, workDate: string) {
       work_date:       workDate,
       episode:         newEpisode,
       target:          data.target          ?? '',
+      task:            data.task            ?? '',
       r1_result:       data.r1_result       ?? '', r1_pick:   data.r1_pick   ?? '', r1_place:   data.r1_place   ?? '', r1_frame3: data.r1_frame3 ?? '',
       r2_result:       data.r2_result       ?? '', r2_pick:   data.r2_pick   ?? '', r2_place:   data.r2_place   ?? '', r2_frame3: data.r2_frame3 ?? '',
       final_result:    data.final_result    ?? '', final_pick: data.final_pick ?? '', final_place: data.final_place ?? '', final_frame3: data.final_frame3 ?? '',
@@ -89,6 +91,7 @@ export function useEntries(workDayId: string, workDate: string) {
     const { data, error } = await supabase.from('entries').insert({
       work_day_id: workDayId, work_date: workDate, episode,
       target: operator !== undefined ? operator : editorName,
+      task: '',
       r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
       r2_result: '', r2_pick: '', r2_place: '', r2_frame3: '',
       final_result: '', final_pick: '', final_place: '', final_frame3: '',
@@ -111,6 +114,7 @@ export function useEntries(workDayId: string, workDate: string) {
     const rows = episodes.map(episode => ({
       work_day_id: workDayId, work_date: workDate, episode,
       target: editorName,
+      task: '',
       r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
       r2_result: '', r2_pick: '', r2_place: '', r2_frame3: '',
       final_result: '', final_pick: '', final_place: '', final_frame3: '',
@@ -142,6 +146,26 @@ export function useEntries(workDayId: string, workDate: string) {
     return toDelete.length
   }
 
+  const assignTaskRange = async (episodeFrom: number, episodeTo: number, task: string, editorName: string) => {
+    const toUpdate = entries.filter(e => {
+      const n = parseFloat(e.episode)
+      return !isNaN(n) && n >= episodeFrom && n <= episodeTo && (e.task ?? '') !== task
+    })
+    if (toUpdate.length === 0) return 0
+
+    const now = new Date().toISOString()
+    const ids = toUpdate.map(e => e.id)
+    const { error } = await supabase
+      .from('entries')
+      .update({ task, last_editor: editorName, last_updated: now })
+      .in('id', ids)
+    if (error) throw error
+
+    const idSet = new Set(ids)
+    setEntries(prev => prev.map(e => idSet.has(e.id) ? { ...e, task, last_editor: editorName, last_updated: now } : e))
+    return toUpdate.length
+  }
+
   const reorderEntries = async (orderedIds: string[]) => {
     setEntries(prev => {
       const map = new Map(prev.map(e => [e.id, e]))
@@ -152,5 +176,5 @@ export function useEntries(workDayId: string, workDate: string) {
     )
   }
 
-  return { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries }
+  return { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries, assignTaskRange }
 }

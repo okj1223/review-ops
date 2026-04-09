@@ -7,13 +7,15 @@ import { NameSelector } from '@/components/NameSelector'
 import { WorkDayTable } from '@/components/WorkDayTable'
 import { GuideModal } from '@/components/GuideModal'
 import { useUserName } from '@/hooks/useUserName'
-import { DEFAULT_CONFIG } from '@/lib/constants'
+import { useAppSettings } from '@/hooks/useAppSettings'
+import { normalizeWorkDayConfig } from '@/lib/constants'
 import type { WorkDay, WorkDayConfig } from '@/lib/types'
 
 export default function WorkDayPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { name } = useUserName()
+  const { settings: appSettings } = useAppSettings()
   const [workDay, setWorkDay] = useState<WorkDay | null>(null)
   const [loading, setLoading] = useState(true)
   const [showGuide, setShowGuide] = useState(false)
@@ -35,8 +37,12 @@ export default function WorkDayPage() {
   }
   if (!workDay) return null
 
-  const config: WorkDayConfig =
-    workDay.config && workDay.config.frames?.length ? workDay.config : DEFAULT_CONFIG
+  const config: WorkDayConfig = normalizeWorkDayConfig(workDay.config)
+  const taskOptions = Array.from(new Set(
+    appSettings.dropdowns.task
+      .map(v => v.trim())
+      .filter(Boolean)
+  ))
 
   return (
     <main className="px-4 py-5 min-h-screen">
@@ -78,6 +84,7 @@ export default function WorkDayPage() {
           r2Name={workDay.r2_name}
           editorName={name}
           config={config}
+          taskOptions={taskOptions}
           initialBannerEpisode={workDay.cross_banner_episode}
         />
       )}
