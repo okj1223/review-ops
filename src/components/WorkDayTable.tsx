@@ -86,6 +86,17 @@ function InsertRow({ totalCols, r1Name, r2Name, onConfirm, onCancel }: {
 
 type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 type HistoryItem = { prev: Entry; editor: string }
+type ReportResult = 'Clean' | 'Dirty' | 'Fail'
+
+const REPORT_RESULTS: ReportResult[] = ['Clean', 'Dirty', 'Fail']
+
+function effectiveResultForReport(entry: Entry): ReportResult | 'None' {
+  const result = entry.r1_result && entry.r2_result
+    ? (entry.final_result || 'None')
+    : (entry.r1_result || entry.r2_result || 'None')
+  if (result === 'Clean' || result === 'Dirty' || result === 'Fail') return result
+  return 'None'
+}
 
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, taskOptions = [], initialBannerEpisode = null }: Props) {
   const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries, assignTaskRange } = useEntries(workDayId, workDate)
@@ -131,6 +142,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [delConfirm, setDelConfirm]       = useState(false)
   const [delLoading, setDelLoading]       = useState(false)
   const [delError, setDelError]           = useState('')
+  const [reportCopyMessage, setReportCopyMessage] = useState('')
   const [insertBeforeId, setInsertBeforeId] = useState<string | null>(null)
   const [bannerEpisode, setBannerEpisode] = useState<string | null>(initialBannerEpisode)
 
@@ -361,6 +373,35 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     waiting:  entries.filter(e => e.action === 'Waiting Lead').length,
     conflict: entries.filter(e => e.conflict && e.action !== 'Resolved' && e.action !== 'Waiting Lead').length,
   }), [entries])
+
+  const resultReport = useMemo(() => {
+    const grouped: Record<ReportResult, string[]> = { Clean: [], Dirty: [], Fail: [] }
+    entries.forEach(entry => {
+      const episode = entry.episode.trim()
+      if (!episode) return
+      const result = effectiveResultForReport(entry)
+      if (result === 'None') return
+      grouped[result].push(episode)
+    })
+    return grouped
+  }, [entries])
+
+  const resultReportText = useMemo(() => {
+    return REPORT_RESULTS
+      .map(result => `${result} (${resultReport[result].length}건): ${resultReport[result].join(', ') || '-'}`)
+      .join('\n')
+  }, [resultReport])
+
+  const copyResultReport = async () => {
+    try {
+      await navigator.clipboard.writeText(resultReportText)
+      setReportCopyMessage('보고서 복사 완료')
+    } catch {
+      setReportCopyMessage('복사에 실패했습니다')
+    } finally {
+      window.setTimeout(() => setReportCopyMessage(''), 1800)
+    }
+  }
 
   const handleDragStart = (id: string) => setDraggedId(id)
   const handleDragOver  = (id: string) => { if (id !== draggedId) setDragOverId(id) }
@@ -711,6 +752,33 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           </>)}
         </div>
       )}
+
+      {/* 결과 보고서 */}
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-700">결과 보고서</p>
+          <div className="flex items-center gap-2">
+            {reportCopyMessage && (
+              <span className={`text-xs ${reportCopyMessage.includes('완료') ? 'text-emerald-600' : 'text-red-500'}`}>
+                {reportCopyMessage}
+              </span>
+            )}
+            <button
+              onClick={copyResultReport}
+              className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+            >
+              보고서 복사
+            </button>
+          </div>
+        </div>
+        <div className="text-sm text-slate-700 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 leading-relaxed">
+          {REPORT_RESULTS.map(result => (
+            <p key={result} className="break-words">
+              <span className="font-semibold">{result} ({resultReport[result].length}건):</span> {resultReport[result].join(', ') || '-'}
+            </p>
+          ))}
+        </div>
+      </div>
 
       {/* 처리 필요 패널 */}
       {needsActionEntries.length > 0 && (
