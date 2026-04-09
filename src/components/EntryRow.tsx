@@ -3,6 +3,19 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { computeRow } from '@/lib/logic'
 import { DEFAULT_CONFIG } from '@/lib/constants'
+import {
+  ACTION_COL_WIDTH,
+  CONFLICT_COL_WIDTH,
+  DETAIL_COL_WIDTH,
+  EPISODE_COL_WIDTH,
+  LAST_UPDATED_COL_WIDTH,
+  REASON_CODE_COL_WIDTH,
+  ROUTE_COL_WIDTH,
+  STICKY_ACTION_LEFT,
+  STICKY_COL_WIDTH,
+  STICKY_CONTROL_LEFT,
+  STICKY_EPISODE_LEFT,
+} from '@/lib/tableLayout'
 import type { Entry, EntryWithComputed, WorkDayConfig, FrameKey } from '@/lib/types'
 
 interface Props {
@@ -214,7 +227,10 @@ function ExpandingTextarea({
   )
 }
 
-export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
+export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2Name, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
+  void _editorName
+  void r1Name
+  void r2Name
   const focusedField = useRef<string | null>(null)
   const [local, setLocal]       = useState(entry)
   const latestLocal             = useRef(entry)
@@ -339,7 +355,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
     >
 
       {/* Controls */}
-      <td className="border-r border-slate-100 sticky left-0 z-10 w-8 bg-white group-hover:bg-slate-50 p-0">
+      <td className={`border-r border-slate-100 sticky ${STICKY_CONTROL_LEFT} z-10 ${STICKY_COL_WIDTH} bg-white group-hover:bg-slate-50 p-0`}>
         <div className="flex flex-col items-center justify-center h-full w-full">
           <div
             title="드래그해서 순서 변경"
@@ -377,7 +393,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Episode */}
-      <td className={cell('sticky left-8 z-10 bg-white group-hover:bg-slate-50 w-20')}>
+      <td className={cell(`sticky ${STICKY_EPISODE_LEFT} z-10 bg-white group-hover:bg-slate-50 ${EPISODE_COL_WIDTH}`)}>
         <div className="flex flex-col items-start gap-0.5">
           <div className="flex items-center gap-1">
             <input
@@ -419,7 +435,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Action */}
-      <td className={cell('sticky left-28 z-10 bg-white group-hover:bg-slate-50 min-w-[11rem]')}>
+      <td className={cell(`sticky ${STICKY_ACTION_LEFT} z-10 bg-white group-hover:bg-slate-50 ${ACTION_COL_WIDTH}`)}>
         <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${getActionStyle(local.action)}`}>
           {local.action || '—'}
         </span>
@@ -458,7 +474,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       ))}
 
       {/* Conflict */}
-      <td className={cell('min-w-[7rem]')}>
+      <td className={cell(CONFLICT_COL_WIDTH)}>
         {local.conflict && (
           <div className="flex flex-col gap-0.5">
             {local.conflict.split(', ').map(c => (
@@ -488,7 +504,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       ))}
 
       {/* Reason Code */}
-      <td className={cell('min-w-[9rem]')}>
+      <td className={cell(REASON_CODE_COL_WIDTH)}>
         <SelectCell
           value={local.reason_code}
           onChange={v => handleSelect('reason_code', v)}
@@ -498,7 +514,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Reason Detail */}
-      <td className={cell('min-w-[12rem]')}>
+      <td className={cell(DETAIL_COL_WIDTH)}>
         <ExpandingTextarea
           value={local.reason_detail}
           disabled={!hasConflict}
@@ -512,7 +528,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Response Detail */}
-      <td className={cell('min-w-[12rem]')}>
+      <td className={cell(DETAIL_COL_WIDTH)}>
         <ExpandingTextarea
           value={local.response_detail}
           disabled={!hasConflict}
@@ -526,7 +542,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Route */}
-      <td className={cell('min-w-[10rem]')}>
+      <td className={cell(ROUTE_COL_WIDTH)}>
         <SelectCell
           value={local.route}
           onChange={v => handleSelect('route', v)}
@@ -536,7 +552,7 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
       </td>
 
       {/* Last Updated */}
-      <td className="px-2 py-1 text-[10px] text-slate-400 whitespace-nowrap min-w-[7rem]">
+      <td className={`px-2 py-1 text-[10px] text-slate-400 whitespace-nowrap ${LAST_UPDATED_COL_WIDTH}`}>
         <div className="font-medium text-slate-500">{local.last_editor}</div>
         <div>{ts}</div>
       </td>
