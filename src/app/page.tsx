@@ -216,20 +216,20 @@ export default function HomePage() {
   }
 
   const sBtnCls = (s: string) =>
-    `px-2.5 py-1 text-sm rounded-full font-medium transition-colors ${statusFilter === s ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`
+    `px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${statusFilter === s ? 'bg-slate-800 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`
 
   const isDefaultRange = dateFrom === TWO_WEEKS_AGO && dateTo === TODAY
   const isInsightDefaultDateRange = !insightDateFrom && !insightDateTo
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-10 flex flex-col text-sm text-slate-700">
+    <main className="max-w-3xl mx-auto px-4 py-10 flex flex-col">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Review Ops</h1>
-          <p className="text-sm text-slate-400 mt-0.5">교차 검수 작업 관리 시스템</p>
+          <p className="text-xs text-slate-400 mt-0.5">교차 검수 작업 관리 시스템</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/archive" className="text-sm text-slate-500 hover:text-slate-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors font-medium">
+          <Link href="/archive" className="text-xs text-slate-500 hover:text-slate-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors font-medium">
             전체 보관함
           </Link>
           <button
@@ -253,7 +253,7 @@ export default function HomePage() {
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
 
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest">작업일</h2>
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">작업일</h2>
         <button
           onClick={() => setShowModal(true)}
           className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -267,7 +267,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSortAsc(p => !p)}
-            className="text-sm text-slate-500 hover:text-slate-800 font-medium px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+            className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
           >
             {sortAsc ? '오래된순 ↑' : '최신순 ↓'}
           </button>
@@ -282,7 +282,7 @@ export default function HomePage() {
             value={reviewerFilter}
             onChange={e => setReviewerFilter(e.target.value)}
             placeholder="검수자 이름"
-            className="text-sm border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            className="text-xs border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
           />
         </div>
         <div className="flex items-center gap-1.5">
@@ -290,14 +290,14 @@ export default function HomePage() {
             type="date"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
-            className="border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
           />
-          <span className="text-slate-300 text-sm">~</span>
+          <span className="text-slate-300 text-xs">~</span>
           <input
             type="date"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
-            className="border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
           />
           {!isDefaultRange && (
             <button
@@ -310,16 +310,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="order-3 mt-4 w-full max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm">
+      <div className="order-3 mt-4 w-full max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm">
         <button
           onClick={() => setShowInsights(p => !p)}
           className="w-full flex items-center justify-between px-3 py-2.5 text-left"
         >
           <div>
-            <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">인사이트</p>
-            <p className="text-sm text-slate-400 mt-0.5">필터/검색 기준으로 결과와 task 분포를 동적으로 확인합니다</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">인사이트</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">필터/검색 기준으로 결과와 task 분포를 동적으로 확인합니다</p>
           </div>
-          <span className="text-sm text-slate-400">{showInsights ? '접기 ↑' : '펼치기 ↓'}</span>
+          <span className="text-xs text-slate-400">{showInsights ? '접기 ↑' : '펼치기 ↓'}</span>
         </button>
 
         {showInsights && (
@@ -331,43 +331,43 @@ export default function HomePage() {
                 value={insightEpisodeFrom}
                 onChange={e => setInsightEpisodeFrom(e.target.value)}
                 placeholder="에피소드 시작"
-                className="text-sm border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="text-xs border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300"
               />
-              <span className="text-slate-300 text-sm">~</span>
+              <span className="text-slate-300 text-xs">~</span>
               <input
                 type="number"
                 min={0}
                 value={insightEpisodeTo}
                 onChange={e => setInsightEpisodeTo(e.target.value)}
                 placeholder="에피소드 끝"
-                className="text-sm border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="text-xs border border-slate-200 rounded-full px-2.5 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-300"
               />
               <input
                 type="date"
                 value={insightDateFrom}
                 onChange={e => setInsightDateFrom(e.target.value)}
-                className="border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
               />
-              <span className="text-slate-300 text-sm">~</span>
+              <span className="text-slate-300 text-xs">~</span>
               <input
                 type="date"
                 value={insightDateTo}
                 onChange={e => setInsightDateTo(e.target.value)}
-                className="border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white"
               />
               <input
                 type="text"
                 value={insightOperatorSearch}
                 onChange={e => setInsightOperatorSearch(e.target.value)}
                 placeholder="오퍼레이터 검색"
-                className="text-sm border border-slate-200 rounded-full px-2.5 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="text-xs border border-slate-200 rounded-full px-2.5 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
               />
               <input
                 type="text"
                 value={insightTaskSearch}
                 onChange={e => setInsightTaskSearch(e.target.value)}
                 placeholder="task 검색"
-                className="text-sm border border-slate-200 rounded-full px-2.5 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                className="text-xs border border-slate-200 rounded-full px-2.5 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
               />
               <button
                 onClick={() => setInsightResultFilter(new Set<InsightResult>(['Clean', 'Dirty', 'Fail', 'None']))}
@@ -390,7 +390,7 @@ export default function HomePage() {
                 <button
                   key={result}
                   onClick={() => toggleInsightResult(result)}
-                  className={`px-2.5 py-1 text-sm rounded-full font-medium transition-colors ${
+                  className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                     insightResultFilter.has(result)
                       ? 'bg-slate-800 text-white'
                       : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
@@ -421,7 +421,7 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-lg border border-slate-100 p-2.5">
-              <p className="text-sm font-semibold text-slate-600 mb-2">결과 분포</p>
+              <p className="text-xs font-semibold text-slate-600 mb-2">결과 분포</p>
               {visibleInsightResults.length === 0 ? (
                 <p className="text-[11px] text-slate-400">선택된 결과 필터가 없습니다.</p>
               ) : (
@@ -449,7 +449,7 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-lg border border-slate-100 p-2.5">
-              <p className="text-sm font-semibold text-slate-600 mb-2">Task 분포 (전체 대비)</p>
+              <p className="text-xs font-semibold text-slate-600 mb-2">Task 분포 (전체 대비)</p>
               {taskStats.length === 0 ? (
                 <p className="text-[11px] text-slate-400">조건에 맞는 task 데이터가 없습니다.</p>
               ) : (
@@ -473,7 +473,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="order-2 w-full max-w-4xl mx-auto">
+      <div className="order-2 w-full max-w-3xl mx-auto">
         {loading ? (
           <div className="py-16 text-center text-slate-400 text-sm">불러오는 중...</div>
         ) : filteredWorkDays.length === 0 ? (
@@ -501,8 +501,8 @@ export default function HomePage() {
                         <span className="font-bold">{wd.date}</span> 삭제할까요? (에피소드 전체 삭제됨)
                       </p>
                       <div className="flex gap-2">
-                        <button onClick={() => handleDelete(wd.id)} className="text-sm bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors">삭제</button>
-                        <button onClick={() => setDeletingDate(null)} className="text-sm bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-lg hover:bg-slate-50 transition-colors">취소</button>
+                        <button onClick={() => handleDelete(wd.id)} className="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors">삭제</button>
+                        <button onClick={() => setDeletingDate(null)} className="text-xs bg-white border border-slate-200 text-slate-600 px-3 py-1 rounded-lg hover:bg-slate-50 transition-colors">취소</button>
                       </div>
                     </div>
                   ) : (
@@ -522,7 +522,7 @@ export default function HomePage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm text-slate-400">R1: {wd.r1_name} · R2: {wd.r2_name}</p>
+                            <p className="text-xs text-slate-400">R1: {wd.r1_name} · R2: {wd.r2_name}</p>
                             {sum?.range && <span className="text-[10px] text-slate-400 font-mono">{sum.range}</span>}
                           </div>
                           {sum && sum.total > 0 && (
@@ -555,7 +555,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="order-2 w-full max-w-4xl mx-auto my-4 border-t border-slate-200" aria-hidden />
+      <div className="order-2 w-full max-w-3xl mx-auto my-4 border-t border-slate-200" aria-hidden />
 
       {showModal    && <CreateWorkDayModal onClose={() => { setShowModal(false); fetchWorkDays() }} />}
       {showSettings && <SettingsModal settings={settings} onSave={saveSettings} onClose={() => setShowSettings(false)} />}
