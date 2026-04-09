@@ -6,6 +6,22 @@ import { FocusMode } from './FocusMode'
 import { PiPWindow } from './PiPWindow'
 import { useEntries } from '@/hooks/useEntries'
 import { DEFAULT_CONFIG } from '@/lib/constants'
+import {
+  ACTION_COL_WIDTH,
+  CONFLICT_COL_WIDTH,
+  DETAIL_COL_WIDTH,
+  EPISODE_COL_WIDTH,
+  FRAME_COL_WIDTH,
+  getWorkDayColumnWidths,
+  LAST_UPDATED_COL_WIDTH,
+  REASON_CODE_COL_WIDTH,
+  RESULT_COL_WIDTH,
+  ROUTE_COL_WIDTH,
+  STICKY_ACTION_LEFT,
+  STICKY_COL_WIDTH,
+  STICKY_CONTROL_LEFT,
+  STICKY_EPISODE_LEFT,
+} from '@/lib/tableLayout'
 import { supabase } from '@/lib/supabase'
 import type { Entry, EntryWithComputed, WorkDayConfig } from '@/lib/types'
 
@@ -111,19 +127,6 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     setHighlightedId(id)
     setTimeout(() => setHighlightedId(null), 1500)
   }
-  const [contentWidth, setContentWidth] = useState(0)
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const update = () => setContentWidth(container.scrollWidth)
-    update()
-    const table = container.querySelector('table')
-    if (!table) return
-    const ro = new ResizeObserver(update)
-    ro.observe(table)
-    return () => ro.disconnect()
-  }, [loading])
 
   const onMirrorScroll = () => {
     if (containerRef.current && mirrorRef.current)
@@ -315,22 +318,22 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   )
 
   // 동적 헤더
-  const headers: { label: string; group?: GroupKey; sticky?: boolean; stickyLeft?: string }[] = [
-    { label: '',        group: 'ctrl',     sticky: true, stickyLeft: 'left-0' },
-    { label: 'Episode',                    sticky: true, stickyLeft: 'left-8' },
-    { label: 'Action',  group: 'computed', sticky: true, stickyLeft: 'left-28' },
-    { label: `${r1Name} Result`, group: 'r1' },
-    ...config.frames.map(f => ({ label: `${r1Name} ${f.label}`, group: 'r1' as GroupKey })),
-    { label: `${r2Name} Result`, group: 'r2' },
-    ...config.frames.map(f => ({ label: `${r2Name} ${f.label}`, group: 'r2' as GroupKey })),
-    { label: 'Conflict', group: 'computed' },
-    { label: 'Final Result', group: 'final' },
-    ...config.frames.map(f => ({ label: `Final ${f.label}`, group: 'final' as GroupKey })),
-    { label: 'Reason Code' },
-    { label: 'Reason Detail' },
-    { label: 'Response Detail' },
-    { label: 'Route' },
-    { label: 'Last Updated' },
+  const headers: { label: string; group?: GroupKey; sticky?: boolean; stickyLeft?: string; widthClass?: string }[] = [
+    { label: '',        group: 'ctrl',     sticky: true, stickyLeft: STICKY_CONTROL_LEFT, widthClass: STICKY_COL_WIDTH },
+    { label: 'Episode',                    sticky: true, stickyLeft: STICKY_EPISODE_LEFT, widthClass: EPISODE_COL_WIDTH },
+    { label: 'Action',  group: 'computed', sticky: true, stickyLeft: STICKY_ACTION_LEFT, widthClass: ACTION_COL_WIDTH },
+    { label: `${r1Name} Result`, group: 'r1', widthClass: RESULT_COL_WIDTH },
+    ...config.frames.map(f => ({ label: `${r1Name} ${f.label}`, group: 'r1' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    { label: `${r2Name} Result`, group: 'r2', widthClass: RESULT_COL_WIDTH },
+    ...config.frames.map(f => ({ label: `${r2Name} ${f.label}`, group: 'r2' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    { label: 'Conflict', group: 'computed', widthClass: CONFLICT_COL_WIDTH },
+    { label: 'Final Result', group: 'final', widthClass: RESULT_COL_WIDTH },
+    ...config.frames.map(f => ({ label: `Final ${f.label}`, group: 'final' as GroupKey, widthClass: FRAME_COL_WIDTH })),
+    { label: 'Reason Code', widthClass: REASON_CODE_COL_WIDTH },
+    { label: 'Reason Detail', widthClass: DETAIL_COL_WIDTH },
+    { label: 'Response Detail', widthClass: DETAIL_COL_WIDTH },
+    { label: 'Route', widthClass: ROUTE_COL_WIDTH },
+    { label: 'Last Updated', widthClass: LAST_UPDATED_COL_WIDTH },
   ]
   const TOTAL_COLS = headers.length
 
@@ -341,6 +344,8 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     final:    'bg-amber-100',
     computed: 'bg-slate-200',
   }
+  const columnWidths = getWorkDayColumnWidths(config.frames.length)
+  const tableWidth = `max(100%, calc(${columnWidths.join(' + ')}))`
 
   if (loading) {
     return (
@@ -608,27 +613,30 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
 
       {/* 테이블 래퍼 */}
       <div className="rounded-xl border border-slate-200 shadow-sm bg-white">
-        {/* 상단 스크롤바 미러 */}
+        {/* 고정 헤더 */}
         <div
           ref={mirrorRef}
-          className="sticky top-0 z-30 overflow-x-auto border-b border-slate-100 bg-slate-50 rounded-t-xl"
-          style={{ height: 14 }}
+          className="sticky top-0 z-30 overflow-x-auto border-b border-slate-100 bg-white rounded-t-xl"
           onScroll={onMirrorScroll}
         >
-          <div style={{ width: contentWidth, height: 1 }} />
-        </div>
-
-        {/* 테이블 */}
-        <div ref={containerRef} className="overflow-x-auto" onScroll={onContainerScroll}>
-          <table className="border-collapse text-sm w-max min-w-full">
+          <table
+            className="table-fixed border-separate border-spacing-0 text-sm"
+            style={{ width: tableWidth }}
+          >
+            <colgroup>
+              {columnWidths.map((width, i) => (
+                <col key={`sticky_col_${i}`} style={{ width }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="border-b-2 border-slate-300">
                 {headers.map((h, i) => (
                   <th
-                    key={`${h.label}_${i}`}
+                    key={`sticky_${h.label}_${i}`}
                     className={[
                       'px-2 py-2.5 text-xs font-semibold text-slate-600 text-left whitespace-nowrap border-r border-slate-200',
-                      h.sticky ? `sticky ${h.stickyLeft} z-20` : '',
+                      h.widthClass ?? '',
+                      h.sticky ? `sticky ${h.stickyLeft} z-20` : 'z-10',
                       h.group ? groupBg[h.group] : 'bg-slate-100',
                     ].join(' ')}
                   >
@@ -637,6 +645,20 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                 ))}
               </tr>
             </thead>
+          </table>
+        </div>
+
+        {/* 테이블 */}
+        <div ref={containerRef} className="overflow-x-auto" onScroll={onContainerScroll}>
+          <table
+            className="table-fixed border-separate border-spacing-0 text-sm"
+            style={{ width: tableWidth }}
+          >
+            <colgroup>
+              {columnWidths.map((width, i) => (
+                <col key={`body_col_${i}`} style={{ width }} />
+              ))}
+            </colgroup>
             <tbody>
               {entries.map((entry) => (
                 <Fragment key={entry.id}>
@@ -703,7 +725,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
 
               {/* 맨 아래 에피소드 추가 */}
               <tr className="border-t border-slate-100">
-                <td className="sticky left-0 bg-white z-10 w-8 border-r border-slate-100" />
+                <td className={`sticky ${STICKY_CONTROL_LEFT} bg-white z-10 ${STICKY_COL_WIDTH} border-r border-slate-100`} />
                 <td colSpan={TOTAL_COLS - 1} className="px-2 py-1">
                   <input
                     ref={newEpisodeRef}

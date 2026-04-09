@@ -152,7 +152,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
       prevIdxRef.current = currentIdx
       setNoteValue(entries[currentIdx]?.note ?? '')
     }
-  })
+  }, [currentIdx, entries])
 
   // 최초 메모 초기화
   useEffect(() => {
@@ -212,11 +212,11 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
   const filledCnt = entries.filter(e => e.r1_result || e.r2_result).length
   const remainCnt = entries.length - filledCnt
 
-  const pastIdx   = currentIdx - step
-  const nextIdx   = currentIdx + step
-  const pastEntry = pastIdx >= 0 && pastIdx < entries.length ? entries[pastIdx] : null
+  const aboveIdx  = currentIdx - 1
+  const belowIdx  = currentIdx + 1
+  const pastEntry = aboveIdx >= 0 && aboveIdx < entries.length ? entries[aboveIdx] : null
   const currEntry = entries[currentIdx] ?? null
-  const nextEntry = nextIdx >= 0 && nextIdx < entries.length ? entries[nextIdx] : null
+  const nextEntry = belowIdx >= 0 && belowIdx < entries.length ? entries[belowIdx] : null
 
   // PiP 컴팩트 모드
   if (eventWindow) {
@@ -236,7 +236,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
       <div className="fixed inset-0 bg-slate-900 flex flex-col">
         {/* 이전 행 */}
         {pastEntry
-          ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-step)} />
+          ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-1)} />
           : <div className="h-6" />
         }
 
@@ -285,7 +285,7 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
 
         {/* 다음 행 */}
         {nextEntry
-          ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(step)} />
+          ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(1)} />
           : <div className="h-6" />
         }
       </div>
