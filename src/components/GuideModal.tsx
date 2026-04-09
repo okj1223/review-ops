@@ -27,6 +27,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
               {[
                 '새 작업일 생성 — 날짜, R1/R2 이름 입력 후 Enter 또는 생성 클릭',
                 '에피소드 범위 추가 — 오퍼레이터 선택 후 시작~끝 번호 입력, Enter 또는 일괄 추가 클릭',
+                '필요 시 Task 일괄 적용 — task 선택 후 시작~끝 번호를 지정해 한 번에 적용',
                 'R1은 위에서부터, R2는 아래에서부터 Result 입력 (집중모드 활용 권장)',
                 '결과가 일치하면 → OK 자동 처리',
                 '결과가 다르면 → Conflict 발생, Final + Reason Code + Route 입력',
@@ -44,6 +45,17 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <div className="w-full h-px bg-slate-100" />
 
           <section>
+            <p className="font-semibold text-slate-700 mb-2">홈 인사이트</p>
+            <div className="flex flex-col gap-1.5 text-slate-500">
+              <p>홈 화면의 인사이트 패널은 기본 접힘 상태이며, 펼치면 필터 기준 통계를 확인할 수 있습니다.</p>
+              <p>에피소드 시작/끝, 오퍼레이터, task, 결과 필터를 조합해 범위를 좁혀 볼 수 있습니다.</p>
+              <p>전체 성공률, Clean 성공률, Dirty 성공률과 결과/Task 분포가 필터에 맞춰 즉시 갱신됩니다.</p>
+            </div>
+          </section>
+
+          <div className="w-full h-px bg-slate-100" />
+
+          <section>
             <p className="font-semibold text-slate-700 mb-2">⊙ 집중모드</p>
             <div className="flex flex-col gap-1.5 text-slate-500">
               <p>툴바의 <span className="font-medium text-slate-700">⊙ 집중모드</span> 버튼을 클릭해 활성화합니다.</p>
@@ -56,7 +68,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
               <p><span className="font-medium text-slate-700">C / D / F / N</span> 키를 누르면 결과가 저장되고 다음 행으로 자동 이동합니다.</p>
               <p><span className="font-medium text-slate-700">↑ / ↓</span> 키 또는 헤더 버튼으로 결과 입력 없이 행 이동이 가능합니다.</p>
               <p>현재 행 아래 <span className="font-medium text-slate-700">메모 입력창</span>에 메모를 남길 수 있으며, 결과 선택 시 함께 저장됩니다. 메모 입력 중에는 단축키가 동작하지 않습니다.</p>
-              <p>메모가 있는 행은 메인 테이블에서 에피소드 옆에 <span className="font-medium text-slate-700">✎</span> 아이콘으로 표시되며, 마우스를 올리면 내용을 확인할 수 있습니다.</p>
+              <p>메모가 있는 행은 메인 테이블에서 에피소드 옆에 <span className="font-medium text-slate-700">✎</span> 아이콘으로 표시되며, 아이콘을 클릭해 내용을 확인/수정할 수 있습니다.</p>
               <p><span className="font-medium text-slate-700">Tab</span> 키 또는 검수자 이름 버튼을 클릭하면 R1 / R2를 즉시 전환할 수 있습니다.</p>
               <p><span className="font-medium text-slate-700">Esc</span>를 누르면 일반 모드로 돌아옵니다.</p>
             </div>
@@ -90,6 +102,17 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col gap-1.5 text-slate-500">
               <p>테이블 위 통계 바에서 전체 · OK · Conflict · Resolved · Waiting Lead 건수를 한눈에 확인할 수 있습니다.</p>
               <p><span className="font-medium text-slate-700">처리 필요</span> 패널의 항목을 클릭하면 해당 에피소드 행으로 자동 스크롤되며 잠깐 하이라이트됩니다.</p>
+            </div>
+          </section>
+
+          <div className="w-full h-px bg-slate-100" />
+
+          <section>
+            <p className="font-semibold text-slate-700 mb-2">Task 관리</p>
+            <div className="flex flex-col gap-1.5 text-slate-500">
+              <p>워크스페이스 테이블의 <span className="font-medium text-slate-700">Task</span> 컬럼에서 에피소드별 task를 직접 지정할 수 있습니다.</p>
+              <p>툴바의 <span className="font-medium text-slate-700">Task 일괄</span>에서 task와 시작/끝 번호를 지정하면 구간에 한 번에 적용됩니다.</p>
+              <p>홈 설정의 Task 옵션에서 항목을 삭제해도, 이미 저장된 엔트리의 task 값은 유지됩니다.</p>
             </div>
           </section>
 
@@ -142,7 +165,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
                 [['Ctrl', 'Z'], '내 변경 한 단계 되돌리기'],
                 [['↑', '↓'], '집중모드에서 결과 입력 없이 행 이동'],
                 [['Tab'], '집중모드에서 R1 / R2 전환'],
-                [['Enter'], '숫자 입력 필드에서 일괄 추가 / 범위 삭제 실행'],
+                [['Enter'], '숫자 입력 필드에서 일괄 추가 / Task 일괄 적용 / 범위 삭제 실행'],
                 [['Enter'], '새 작업일 생성 모달에서 생성 실행'],
                 [['Esc'], '집중모드 종료 / 모달 · 드롭다운 닫기'],
               ].map(([keys, desc], i) => (
@@ -163,6 +186,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <section>
             <p className="font-semibold text-slate-700 mb-2">전체 보관함 필터</p>
             <div className="flex flex-col gap-1.5 text-slate-500">
+              <p>에피소드, 오퍼레이터, task를 타이핑으로 빠르게 검색할 수 있습니다.</p>
               <p>Conflict / Action / Result 각 항목 내에서는 <span className="font-medium text-slate-600">OR</span> 다중 선택이 가능합니다.</p>
               <p>항목들 사이는 <span className="font-medium text-slate-600">AND</span>로 결합됩니다.</p>
               <p>Result 필터: R1·R2 모두 입력된 경우 <span className="font-medium text-slate-600">Final Result</span> 기준, 한 명만 입력된 경우 해당 값 기준.</p>
