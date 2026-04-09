@@ -404,16 +404,17 @@ export function EntryRow({ entry, workDate, editorName, r1Name, r2Name, config =
               ✎
             </span>
           </div>
-          {local.target && (
-            <span className={[
-              'text-[9px] font-bold px-1.5 py-px rounded-full leading-tight',
-              local.target === r1Name ? 'bg-blue-100 text-blue-600' :
-              local.target === r2Name ? 'bg-emerald-100 text-emerald-600' :
-              'bg-slate-100 text-slate-500',
-            ].join(' ')}>
-              {local.target === r1Name ? 'R1' : local.target === r2Name ? 'R2' : local.target}
-            </span>
-          )}
+          <input
+            className="w-16 text-xs border border-transparent hover:border-slate-200 focus:border-blue-300 focus:bg-blue-50 focus:outline-none rounded px-1 py-0.5 bg-transparent text-slate-600"
+            value={local.target}
+            onFocus={() => { focusedField.current = 'target' }}
+            onChange={e => {
+              latestLocal.current = { ...latestLocal.current, target: e.target.value }
+              setLocal(p => ({ ...p, target: e.target.value }))
+            }}
+            onBlur={handleTextBlur}
+            placeholder="Operator"
+          />
         </div>
       </td>
 

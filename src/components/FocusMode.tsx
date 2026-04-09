@@ -50,10 +50,8 @@ function findStartIdx(entries: EntryWithComputed[], reviewer: 'r1' | 'r2', direc
     const idx = entries.findIndex(e => !e[field])
     return idx === -1 ? 0 : idx
   } else {
-    for (let i = entries.length - 1; i >= 0; i--) {
-      if (!entries[i][field]) return i
-    }
-    return entries.length - 1
+    const idx = entries.findIndex(e => !e[field])
+    return idx === -1 ? entries.length - 1 : idx
   }
 }
 
@@ -235,10 +233,11 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
     return (
       <div className="fixed inset-0 bg-slate-900 flex flex-col">
         {/* 이전 행 */}
-        {pastEntry
-          ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-step)} />
-          : <div className="h-6" />
-        }
+        {direction === 'up' ? (
+          nextEntry ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-1)} /> : <div className="h-6" />
+        ) : (
+          pastEntry ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(-1)} /> : <div className="h-6" />
+        )}
 
         {/* 현재 행 */}
         <div className="flex items-center gap-1 px-2 py-1">
@@ -284,10 +283,11 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
         </div>
 
         {/* 다음 행 */}
-        {nextEntry
-          ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(step)} />
-          : <div className="h-6" />
-        }
+        {direction === 'up' ? (
+          pastEntry ? <MiniRow ep={pastEntry.episode} result={pastEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(1)} /> : <div className="h-6" />
+        ) : (
+          nextEntry ? <MiniRow ep={nextEntry.episode} result={nextEntry[resultField as keyof EntryWithComputed] as string} dim onClick={() => handleNavigate(1)} /> : <div className="h-6" />
+        )}
       </div>
     )
   }
@@ -329,12 +329,25 @@ export function FocusMode({ entries, reviewer, direction, r1Name, r2Name, config
 
       {/* 3줄 */}
       <div className="flex flex-col gap-2 w-full max-w-md">
-        <RowCard entry={pastEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
-          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-        <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
-          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
-        <RowCard entry={nextEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
-          noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+        {direction === 'up' ? (
+          <>
+            <RowCard entry={nextEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+            <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+            <RowCard entry={pastEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+          </>
+        ) : (
+          <>
+            <RowCard entry={pastEntry} role="past" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+            <RowCard entry={currEntry} role="current" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+            <RowCard entry={nextEntry} role="next" resultField={resultField} results={results} shortcuts={shortcuts}
+              noteValue={noteValue} setNoteValue={setNoteValue} noteRef={noteRef} onResult={handleResult} />
+          </>
+        )}
       </div>
 
       {/* 단축키 안내 */}

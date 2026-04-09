@@ -1,8 +1,8 @@
 import type { Entry, ComputedFields } from './types'
 
 export function computeRow(e: Entry): ComputedFields {
-  const r1Touched = !!(e.r1_result || e.r1_pick || e.r1_place || e.r1_frame3)
-  const r2Touched = !!(e.r2_result || e.r2_pick || e.r2_place || e.r2_frame3)
+  const r1Touched = !!e.r1_result
+  const r2Touched = !!e.r2_result
 
   // ── Conflict 감지 ─────────────────────────────────────────
   const conflictParts: string[] = []
@@ -47,18 +47,20 @@ export function computeRow(e: Entry): ComputedFields {
     action = ''
   } else if (!r1Touched && !r2Touched) {
     action = 'Ready to review'
+  } else if (conflict) {
+    if (finalMissing) {
+      action = `Conflict | Need ${finalMissing}`
+    } else if (e.route === 'Waiting Lead') {
+      action = 'Waiting Lead'
+    } else {
+      action = 'Resolved'
+    }
   } else if (r1Missing) {
     action = `Need R1 ${r1Missing}`
   } else if (r2Missing) {
     action = `Need R2 ${r2Missing}`
-  } else if (!conflict) {
-    action = stale ? 'Clear stale resolution fields' : 'OK'
-  } else if (finalMissing) {
-    action = `Conflict | Need ${finalMissing}`
-  } else if (e.route === 'Waiting Lead') {
-    action = 'Waiting Lead'
   } else {
-    action = 'Resolved'
+    action = stale ? 'Clear stale resolution fields' : 'OK'
   }
 
   return { conflict, action }

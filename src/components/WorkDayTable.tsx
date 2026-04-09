@@ -20,10 +20,11 @@ interface Props {
 }
 
 
-function InsertRow({ totalCols, onConfirm, onCancel }: {
-  totalCols: number; onConfirm: (ep: string) => void; onCancel: () => void
+function InsertRow({ totalCols, r1Name, r2Name, onConfirm, onCancel }: {
+  totalCols: number; r1Name: string; r2Name: string; onConfirm: (ep: string, operator: string) => void; onCancel: () => void
 }) {
   const [val, setVal] = useState('')
+  const [operator, setOperator] = useState('')
   return (
     <tr className="bg-blue-50 border-y border-blue-200">
       <td colSpan={totalCols} className="px-3 py-1.5">
@@ -35,12 +36,21 @@ function InsertRow({ totalCols, onConfirm, onCancel }: {
             value={val}
             onChange={e => setVal(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && val.trim()) { onConfirm(val.trim()); setVal('') }
+              if (e.key === 'Enter' && val.trim()) { onConfirm(val.trim(), operator); setVal(''); setOperator('') }
               if (e.key === 'Escape') onCancel()
             }}
             placeholder="번호 입력 후 Enter"
             className="border border-blue-300 rounded px-2 py-0.5 text-xs w-36 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
           />
+          <select
+            value={operator}
+            onChange={e => setOperator(e.target.value)}
+            className="border border-blue-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+          >
+            <option value="">오퍼레이터 선택</option>
+            <option value={r1Name}>{r1Name} (R1)</option>
+            <option value={r2Name}>{r2Name} (R2)</option>
+          </select>
           <span className="text-[10px] text-blue-400">Esc로 취소</span>
         </div>
       </td>
@@ -621,14 +631,14 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
         {/* 테이블 */}
         <div ref={containerRef} className="overflow-x-auto" onScroll={onContainerScroll}>
           <table className="border-collapse text-sm w-max min-w-full">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white">
               <tr className="border-b-2 border-slate-300">
                 {headers.map((h, i) => (
                   <th
                     key={`${h.label}_${i}`}
                     className={[
                       'px-2 py-2.5 text-xs font-semibold text-slate-600 text-left whitespace-nowrap border-r border-slate-200',
-                      h.sticky ? `sticky ${h.stickyLeft} z-20` : '',
+                      h.sticky ? `${h.stickyLeft} z-20` : '',
                       h.group ? groupBg[h.group] : 'bg-slate-100',
                     ].join(' ')}
                   >
@@ -643,7 +653,9 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                   {insertBeforeId === entry.id && (
                     <InsertRow
                       totalCols={TOTAL_COLS}
-                      onConfirm={async (ep) => { await addRow(ep, editorName, editorName); setInsertBeforeId(null) }}
+                      r1Name={r1Name}
+                      r2Name={r2Name}
+                      onConfirm={async (ep, operator) => { await addRow(ep, editorName, operator); setInsertBeforeId(null) }}
                       onCancel={() => setInsertBeforeId(null)}
                     />
                   )}

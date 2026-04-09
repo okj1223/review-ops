@@ -88,7 +88,7 @@ export function useEntries(workDayId: string, workDate: string) {
   const addRow = async (episode: string, editorName: string, operator?: string) => {
     const { data, error } = await supabase.from('entries').insert({
       work_day_id: workDayId, work_date: workDate, episode,
-      target: operator ?? editorName,
+      target: operator !== undefined ? operator : editorName,
       r1_result: '', r1_pick: '', r1_place: '', r1_frame3: '',
       r2_result: '', r2_pick: '', r2_place: '', r2_frame3: '',
       final_result: '', final_pick: '', final_place: '', final_frame3: '',
