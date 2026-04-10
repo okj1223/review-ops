@@ -36,9 +36,10 @@ interface Props {
   onSetBanner: () => void
   isBannerHere: boolean
   onDragStart: () => void
-  onDragOver: () => void
+  onDragEnd: () => void
+  onDragOver: (event: React.DragEvent<HTMLTableRowElement>) => void
   onDrop: () => void
-  isDragOver: boolean
+  dragOverPosition: 'before' | 'after' | null
   isDragging: boolean
   rowRef?: (el: HTMLTableRowElement | null) => void
   isHighlighted?: boolean
@@ -237,7 +238,7 @@ function ExpandingTextarea({
   )
 }
 
-export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2Name, taskOptions, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragOver, onDrop, isDragOver, isDragging, rowRef, isHighlighted }: Props) {
+export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2Name, taskOptions, config = DEFAULT_CONFIG, onSave, onInsertBefore, onDelete, onSetBanner, isBannerHere, onDragStart, onDragEnd, onDragOver, onDrop, dragOverPosition, isDragging, rowRef, isHighlighted }: Props) {
   void _editorName
   void r1Name
   void r2Name
@@ -371,14 +372,15 @@ export function EntryRow({ entry, workDate, editorName: _editorName, r1Name, r2N
       ref={rowRef}
       draggable
       onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
-      onDragOver={e => { e.preventDefault(); onDragOver() }}
+      onDragOver={e => { e.preventDefault(); onDragOver(e) }}
       onDrop={e => { e.preventDefault(); onDrop() }}
-      onDragEnd={() => {}}
+      onDragEnd={onDragEnd}
       className={[
-        'border-b border-slate-100 group transition-all',
+        'border-b border-slate-100 group transition-all relative',
         hasConflict ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/70',
         isDragging    ? 'opacity-40' : '',
-        isDragOver    ? 'border-t-2 border-blue-400' : '',
+        dragOverPosition === 'before' ? 'border-t-4 border-blue-500 shadow-[inset_0_6px_0_rgba(59,130,246,0.14)]' : '',
+        dragOverPosition === 'after' ? 'border-b-4 border-blue-500 shadow-[inset_0_-6px_0_rgba(59,130,246,0.14)]' : '',
         isHighlighted ? '!bg-amber-100 outline outline-2 outline-amber-400' : '',
       ].join(' ')}
     >

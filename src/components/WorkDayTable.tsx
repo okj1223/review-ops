@@ -1,5 +1,6 @@
 'use client'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { DragEvent } from 'react'
 import * as XLSX from 'xlsx'
 import { EntryRow } from './EntryRow'
 import { FocusMode } from './FocusMode'
@@ -89,6 +90,7 @@ type HistoryItem = { prev: Entry; editor: string }
 type ReportResult = 'Clean' | 'Dirty' | 'Fail'
 type FocusHostWindow = Window & typeof globalThis
 type FocusLaunchMode = 'pip' | 'popup' | 'overlay'
+type DragOverPosition = 'before' | 'after'
 
 interface FocusLaunchResult {
   hostWindow: FocusHostWindow | null
@@ -143,7 +145,7 @@ async function openFocusHostWindow(): Promise<FocusLaunchResult> {
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, taskOptions = [], initialBannerEpisode = null }: Props) {
   const { entries, loading, upsert, addRow, addRows, renameEpisode, deleteRow, deleteRows, reorderEntries, assignTaskRange } = useEntries(workDayId, workDate)
   const [draggedId, setDraggedId]   = useState<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [dragOverState, setDragOverState] = useState<{ id: string; position: DragOverPosition } | null>(null)
   const [focusSetup, setFocusSetup] = useState(false)
   const [focusConfig, setFocusConfig] = useState<{ reviewer: 'r1' | 'r2'; direction: 'down' | 'up' } | null>(null)
   const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
@@ -442,16 +444,29 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   }
 
   const handleDragStart = (id: string) => setDraggedId(id)
-  const handleDragOver  = (id: string) => { if (id !== draggedId) setDragOverId(id) }
+  const handleDragEnd = () => {
+    setDraggedId(null)
+    setDragOverState(null)
+  }
+  const handleDragOver  = (id: string, event: DragEvent<HTMLTableRowElement>) => {
+    if (!draggedId) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const position: DragOverPosition = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+    setDragOverState(prev => (prev?.id === id && prev.position === position ? prev : { id, position }))
+  }
   const handleDrop      = async (targetId: string) => {
-    if (!draggedId || draggedId === targetId) { setDraggedId(null); setDragOverId(null); return }
+    if (!draggedId) { setDraggedId(null); setDragOverState(null); return }
+    const dropPosition = dragOverState?.id === targetId ? dragOverState.position : 'before'
     const ids     = entries.map(e => e.id)
     const fromIdx = ids.indexOf(draggedId)
     const toIdx   = ids.indexOf(targetId)
+    if (fromIdx === -1 || toIdx === -1) { setDraggedId(null); setDragOverState(null); return }
+    let insertIdx = dropPosition === 'after' ? toIdx + 1 : toIdx
+    if (fromIdx < insertIdx) insertIdx -= 1
     const newOrder = [...ids]
     newOrder.splice(fromIdx, 1)
-    newOrder.splice(toIdx, 0, draggedId)
-    setDraggedId(null); setDragOverId(null)
+    newOrder.splice(insertIdx, 0, draggedId)
+    setDraggedId(null); setDragOverState(null)
     await reorderEntries(newOrder)
   }
 
@@ -977,9 +992,10 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
                     onSetBanner={() => bannerEpisode === entry.episode ? saveBannerEpisode(null) : saveBannerEpisode(entry.episode)}
                     isBannerHere={bannerEpisode === entry.episode}
                     onDragStart={() => handleDragStart(entry.id)}
-                    onDragOver={() => handleDragOver(entry.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={event => handleDragOver(entry.id, event)}
                     onDrop={() => handleDrop(entry.id)}
-                    isDragOver={dragOverId === entry.id}
+                    dragOverPosition={dragOverState?.id === entry.id ? dragOverState.position : null}
                     isDragging={draggedId === entry.id}
                     rowRef={el => { if (el) rowRefs.current.set(entry.id, el); else rowRefs.current.delete(entry.id) }}
                     isHighlighted={highlightedId === entry.id}
