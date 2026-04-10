@@ -61,8 +61,8 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
               <p>툴바의 <span className="font-medium text-slate-700">⊙ 집중모드</span> 버튼을 클릭해 활성화합니다.</p>
               <p>리뷰어와 진행 방향을 선택한 뒤 <span className="font-medium text-slate-700">시작</span>을 누릅니다.</p>
               <p className="text-slate-400 text-[11px] leading-relaxed">
-                🟡 <span className="font-medium text-slate-500">Chrome / Edge</span> — 다른 창(픽서 등) 위에 항상 떠있는 플로팅 창으로 열립니다. 창을 클릭하면 단축키가 활성화됩니다.<br />
-                🔵 <span className="font-medium text-slate-500">Firefox / 기타</span> — 전체 화면 오버레이로 전환됩니다.
+                🟡 <span className="font-medium text-slate-500">Chrome / Edge</span> — 항상 위에 뜨는 PiP 플로팅 창을 우선 사용합니다. 창을 클릭하면 단축키가 활성화됩니다.<br />
+                🔵 <span className="font-medium text-slate-500">기타 환경</span> — 별도 팝업 창을 먼저 시도하고, 외부 창이 막히면 전체 화면 오버레이로 전환됩니다.
               </p>
               <p>지나간 행 · 현재 행 · 다음 행 3줄만 표시됩니다.</p>
               <p><span className="font-medium text-slate-700">C / D / F / N</span> 키를 누르면 결과가 저장되고 다음 행으로 자동 이동합니다.</p>

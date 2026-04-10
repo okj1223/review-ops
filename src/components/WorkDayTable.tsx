@@ -87,8 +87,11 @@ function InsertRow({ totalCols, r1Name, r2Name, onConfirm, onCancel }: {
 type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 type HistoryItem = { prev: Entry; editor: string }
 type ReportResult = 'Clean' | 'Dirty' | 'Fail'
+type FocusHostWindow = Window & typeof globalThis
 
 const REPORT_RESULTS: ReportResult[] = ['Clean', 'Dirty', 'Fail']
+const FOCUS_POPUP_NAME = 'review-ops-focus-mode'
+const FOCUS_POPUP_FEATURES = 'popup=yes,width=440,height=260,resizable=yes,scrollbars=no'
 
 function effectiveResultForReport(entry: Entry): ReportResult | 'None' {
   const result = entry.r1_result && entry.r2_result
@@ -96,6 +99,23 @@ function effectiveResultForReport(entry: Entry): ReportResult | 'None' {
     : (entry.r1_result || entry.r2_result || 'None')
   if (result === 'Clean' || result === 'Dirty' || result === 'Fail') return result
   return 'None'
+}
+
+async function openFocusHostWindow(): Promise<FocusHostWindow | null> {
+  if ('documentPictureInPicture' in window) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pw: FocusHostWindow = await (window as any).documentPictureInPicture.requestWindow({ width: 400, height: 140 })
+      return pw
+    } catch {
+      // PiP가 막히거나 지원되지 않는 환경에서는 일반 팝업을 시도한다.
+    }
+  }
+
+  const popup = window.open('', FOCUS_POPUP_NAME, FOCUS_POPUP_FEATURES)
+  if (!popup || popup.closed) return null
+  try { popup.focus() } catch { /* ignore */ }
+  return popup as FocusHostWindow
 }
 
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, taskOptions = [], initialBannerEpisode = null }: Props) {
@@ -106,23 +126,19 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [focusConfig, setFocusConfig] = useState<{ reviewer: 'r1' | 'r2'; direction: 'down' | 'up' } | null>(null)
   const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
   const [focusSetupDir, setFocusSetupDir] = useState<'down' | 'up'>('down')
-  const [pipWindow, setPipWindow] = useState<(Window & typeof globalThis) | null>(null)
+  const [focusWindow, setFocusWindow] = useState<FocusHostWindow | null>(null)
+
+  const closeFocusMode = useCallback(() => {
+    setFocusConfig(null)
+    setFocusWindow(null)
+  }, [])
 
   const handleStartFocus = async () => {
     setFocusSetup(false)
     const cfg = { reviewer: focusSetupReviewer, direction: focusSetupDir }
-    if ('documentPictureInPicture' in window) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pw: Window & typeof globalThis = await (window as any).documentPictureInPicture.requestWindow({ width: 400, height: 140 })
-        setPipWindow(pw)
-        setFocusConfig(cfg)
-      } catch {
-        setFocusConfig(cfg) // fallback: 전체화면 모드
-      }
-    } else {
-      setFocusConfig(cfg)
-    }
+    const hostWindow = await openFocusHostWindow()
+    setFocusWindow(hostWindow)
+    setFocusConfig(cfg)
   }
 
   const [rangeFrom, setRangeFrom]         = useState('')
@@ -535,6 +551,13 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
             </div>
 
             <div className="flex gap-2 pt-1">
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Chrome / Edge에서는 항상 위 PiP 창을 우선 사용하고, 그 외 환경에서는 별도 팝업 창을 먼저 시도합니다.
+                브라우저가 외부 창을 막으면 현재 탭 전체화면 오버레이로 전환됩니다.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button onClick={() => setFocusSetup(false)} className="flex-1 border rounded-lg py-2 text-sm text-slate-600 hover:bg-slate-50">
                 취소
               </button>
@@ -550,9 +573,9 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
       )}
 
       {/* 집중모드 오버레이 */}
-      {focusConfig && pipWindow ? (
-        <PiPWindow pipWindow={pipWindow} onClose={() => { setFocusConfig(null); setPipWindow(null) }}>
-          {(pipWin) => (
+      {focusConfig && focusWindow ? (
+        <PiPWindow hostWindow={focusWindow} onClose={closeFocusMode}>
+          {(hostWin) => (
             <FocusMode
               entries={entries}
               reviewer={focusConfig.reviewer}
@@ -561,8 +584,8 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
               r2Name={r2Name}
               config={config}
               onSave={e => handleSave(e)}
-              onExit={() => { setFocusConfig(null); setPipWindow(null) }}
-              eventWindow={pipWin}
+              onExit={closeFocusMode}
+              eventWindow={hostWin}
             />
           )}
         </PiPWindow>
@@ -575,7 +598,7 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           r2Name={r2Name}
           config={config}
           onSave={e => handleSave(e)}
-          onExit={() => setFocusConfig(null)}
+          onExit={closeFocusMode}
         />
       ) : null}
       {/* 범위 일괄 추가 + 범위 삭제 + Excel 다운로드 */}

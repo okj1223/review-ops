@@ -4,17 +4,18 @@ import type { Root } from 'react-dom/client'
 import { useEffect, useRef } from 'react'
 
 interface Props {
-  pipWindow: Window & typeof globalThis
+  hostWindow: Window & typeof globalThis
   onClose: () => void
-  children: (pipWindow: Window & typeof globalThis) => React.ReactNode
+  children: (hostWindow: Window & typeof globalThis) => React.ReactNode
 }
 
-export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
+export function PiPWindow({ hostWindow: pw, onClose, children }: Props) {
   const rootRef        = useRef<Root | null>(null)
   const containerRef   = useRef<HTMLDivElement | null>(null)
   const readyRef       = useRef(false)
   const closeTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onCloseRef     = useRef(onClose)
+  const closedRef      = useRef(false)
   onCloseRef.current   = onClose
 
   useEffect(() => {
@@ -26,6 +27,9 @@ export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
 
     // 이미 setup된 경우 재실행 방지
     if (readyRef.current) return
+
+    closedRef.current = false
+    pw.document.title = 'Review Ops Focus Mode'
 
     // <link rel="stylesheet"> 복사
     document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach(el => {
@@ -46,14 +50,19 @@ export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
     pw.document.body.style.padding    = '0'
     pw.document.body.style.background = '#0f172a'
 
-    pw.addEventListener('pagehide', () => {
+    const handleWindowClose = () => {
+      if (closedRef.current) return
+      closedRef.current = true
       readyRef.current = false
       const root = rootRef.current
       rootRef.current      = null
       containerRef.current = null
       setTimeout(() => root?.unmount(), 0)
       onCloseRef.current()
-    })
+    }
+
+    pw.addEventListener('pagehide', handleWindowClose)
+    pw.addEventListener('beforeunload', handleWindowClose)
 
     const container = pw.document.createElement('div')
     pw.document.body.appendChild(container)
@@ -64,6 +73,8 @@ export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
     readyRef.current = true
 
     return () => {
+      pw.removeEventListener('pagehide', handleWindowClose)
+      pw.removeEventListener('beforeunload', handleWindowClose)
       readyRef.current = false
       const root      = rootRef.current
       const container = containerRef.current
@@ -74,7 +85,11 @@ export function PiPWindow({ pipWindow: pw, onClose, children }: Props) {
       closeTimerRef.current = setTimeout(() => {
         root?.unmount()
         container?.remove()
-        try { pw.close() } catch { /* 이미 닫힘 */ }
+        try {
+          if (!closedRef.current && !pw.closed) pw.close()
+        } catch {
+          /* 이미 닫힘 */
+        }
       }, 100)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
