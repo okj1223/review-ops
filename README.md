@@ -212,15 +212,33 @@ npm run lint
 - Linux 환경에서 Focus Mode의 Document Picture-in-Picture 창은 데스크톱 세션에 따라 동작이 다를 수 있습니다.
 - 실제 운영 확인 결과, `X11` 세션에서는 PiP 창이 기대한 대로 항상 위에 유지됐지만 `Wayland` 세션에서는 창이 뒤로 가는 케이스가 있었습니다.
 - 이 경우는 앱 코드가 아니라 브라우저 / 데스크톱 세션의 창 관리 차이에 가깝고, 웹앱에서 강제로 always-on-top을 보장할 수 없습니다.
-- 실무 해결책은 다음 둘 중 하나입니다.
-- `X11` 세션으로 로그인해서 Chrome 실행
-- 또는 Chrome을 X11 backend로 실행
+- 실무 해결책은 Chrome을 X11 backend로 실행하는 것입니다.
 
 ```bash
 google-chrome --ozone-platform=x11
 ```
 
-- 자주 써야 한다면 `Google Chrome (X11)` 런처를 따로 만들어 두는 편이 가장 편합니다.
+자주 써야 한다면 `Google Chrome (X11)` 런처를 만들어 두면 편합니다.
+
+```bash
+mkdir -p ~/.local/share/applications
+cat > ~/.local/share/applications/google-chrome-x11.desktop <<'EOF'
+[Desktop Entry]
+Version=1.0
+Name=Google Chrome (X11)
+Comment=Open Google Chrome using X11 backend
+Exec=google-chrome --ozone-platform=x11 %U
+Terminal=false
+Type=Application
+Icon=google-chrome
+Categories=Network;WebBrowser;
+StartupNotify=true
+EOF
+chmod +x ~/.local/share/applications/google-chrome-x11.desktop
+```
+
+- 앱 목록에서 `Google Chrome (X11)`을 실행하면 됩니다.
+- `chrome://version`의 `Command Line`에 `--ozone-platform=x11`이 보이면 정상 실행입니다.
 
 ## 한 줄 요약
 
