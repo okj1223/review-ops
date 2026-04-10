@@ -89,18 +89,11 @@ type HistoryItem = { prev: Entry; editor: string }
 type ReportResult = 'Clean' | 'Dirty' | 'Fail'
 type FocusHostWindow = Window & typeof globalThis
 type FocusLaunchMode = 'pip' | 'popup' | 'overlay'
-type FocusLaunchNoticeTone = 'success' | 'warning' | 'error'
 
 interface FocusLaunchResult {
   hostWindow: FocusHostWindow | null
   mode: FocusLaunchMode
   reason?: string
-}
-
-interface FocusLaunchNotice {
-  tone: FocusLaunchNoticeTone
-  title: string
-  body: string
 }
 
 const REPORT_RESULTS: ReportResult[] = ['Clean', 'Dirty', 'Fail']
@@ -156,18 +149,11 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
   const [focusSetupDir, setFocusSetupDir] = useState<'down' | 'up'>('down')
   const [focusWindow, setFocusWindow] = useState<FocusHostWindow | null>(null)
-  const [focusLaunchNotice, setFocusLaunchNotice] = useState<FocusLaunchNotice | null>(null)
 
   const closeFocusMode = useCallback(() => {
     setFocusConfig(null)
     setFocusWindow(null)
   }, [])
-
-  useEffect(() => {
-    if (!focusLaunchNotice) return
-    const timer = window.setTimeout(() => setFocusLaunchNotice(null), 8000)
-    return () => window.clearTimeout(timer)
-  }, [focusLaunchNotice])
 
   const handleStartFocus = async () => {
     const cfg = { reviewer: focusSetupReviewer, direction: focusSetupDir }
@@ -175,30 +161,6 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
     setFocusWindow(launch.hostWindow)
     setFocusConfig(cfg)
     setFocusSetup(false)
-
-    if (launch.mode === 'pip') {
-      setFocusLaunchNotice({
-        tone: 'success',
-        title: 'PiP 창으로 열렸습니다',
-        body: '항상 위 플로팅 창이 정상적으로 열렸습니다.',
-      })
-      return
-    }
-
-    if (launch.mode === 'popup') {
-      setFocusLaunchNotice({
-        tone: 'warning',
-        title: 'PiP 대신 일반 팝업 창으로 전환됨',
-        body: `항상 위 PiP 창을 열지 못했습니다.${launch.reason ? ` 원인: ${launch.reason}` : ''}`,
-      })
-      return
-    }
-
-    setFocusLaunchNotice({
-      tone: 'error',
-      title: '현재 탭 오버레이로 전환됨',
-      body: `PiP와 일반 팝업 창을 모두 열지 못했습니다.${launch.reason ? ` 원인: ${launch.reason}` : ''}`,
-    })
   }
 
   const [rangeFrom, setRangeFrom]         = useState('')
@@ -661,31 +623,6 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           onExit={closeFocusMode}
         />
       ) : null}
-      {focusLaunchNotice && (
-        <div
-          className={[
-            'rounded-xl border px-4 py-3 shadow-sm',
-            focusLaunchNotice.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : '',
-            focusLaunchNotice.tone === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-900' : '',
-            focusLaunchNotice.tone === 'error' ? 'border-red-200 bg-red-50 text-red-900' : '',
-          ].join(' ')}
-          role="status"
-          aria-live="polite"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold">{focusLaunchNotice.title}</p>
-              <p className="text-xs leading-relaxed opacity-90 break-words">{focusLaunchNotice.body}</p>
-            </div>
-            <button
-              onClick={() => setFocusLaunchNotice(null)}
-              className="shrink-0 rounded-md border border-current/15 px-2 py-1 text-[11px] font-medium hover:bg-white/40 transition-colors"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
       {/* 범위 일괄 추가 + 범위 삭제 + Excel 다운로드 */}
       <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         {/* 범위 추가 */}
