@@ -88,6 +88,13 @@ type GroupKey = 'ctrl' | 'r1' | 'r2' | 'final' | 'computed' | ''
 type HistoryItem = { prev: Entry; editor: string }
 type ReportResult = 'Clean' | 'Dirty' | 'Fail'
 type FocusHostWindow = Window & typeof globalThis
+type FocusLaunchMode = 'pip' | 'popup' | 'overlay'
+
+interface FocusLaunchResult {
+  hostWindow: FocusHostWindow | null
+  mode: FocusLaunchMode
+  reason?: string
+}
 
 const REPORT_RESULTS: ReportResult[] = ['Clean', 'Dirty', 'Fail']
 const FOCUS_POPUP_NAME = 'review-ops-focus-mode'
@@ -101,21 +108,36 @@ function effectiveResultForReport(entry: Entry): ReportResult | 'None' {
   return 'None'
 }
 
-async function openFocusHostWindow(): Promise<FocusHostWindow | null> {
+function formatFocusLaunchError(error: unknown): string {
+  if (error instanceof DOMException) {
+    return error.message ? `${error.name}: ${error.message}` : error.name
+  }
+  if (error instanceof Error) {
+    return error.message ? `${error.name}: ${error.message}` : error.name
+  }
+  return '알 수 없는 오류'
+}
+
+async function openFocusHostWindow(): Promise<FocusLaunchResult> {
+  let pipFailureReason = ''
+
   if ('documentPictureInPicture' in window) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pw: FocusHostWindow = await (window as any).documentPictureInPicture.requestWindow({ width: 400, height: 140 })
-      return pw
-    } catch {
-      // PiP가 막히거나 지원되지 않는 환경에서는 일반 팝업을 시도한다.
+      return { hostWindow: pw, mode: 'pip' }
+    } catch (error) {
+      pipFailureReason = formatFocusLaunchError(error)
+      console.warn('[FocusMode] Document Picture-in-Picture request failed:', error)
     }
   }
 
   const popup = window.open('', FOCUS_POPUP_NAME, FOCUS_POPUP_FEATURES)
-  if (!popup || popup.closed) return null
+  if (!popup || popup.closed) {
+    return { hostWindow: null, mode: 'overlay', reason: pipFailureReason || '브라우저가 외부 팝업을 차단했습니다.' }
+  }
   try { popup.focus() } catch { /* ignore */ }
-  return popup as FocusHostWindow
+  return { hostWindow: popup as FocusHostWindow, mode: 'popup', reason: pipFailureReason }
 }
 
 export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, config = DEFAULT_CONFIG, taskOptions = [], initialBannerEpisode = null }: Props) {
@@ -127,18 +149,41 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
   const [focusSetupReviewer, setFocusSetupReviewer] = useState<'r1' | 'r2'>('r1')
   const [focusSetupDir, setFocusSetupDir] = useState<'down' | 'up'>('down')
   const [focusWindow, setFocusWindow] = useState<FocusHostWindow | null>(null)
+  const [focusLaunchNotice, setFocusLaunchNotice] = useState('')
 
   const closeFocusMode = useCallback(() => {
     setFocusConfig(null)
     setFocusWindow(null)
   }, [])
 
+  useEffect(() => {
+    if (!focusLaunchNotice) return
+    const timer = window.setTimeout(() => setFocusLaunchNotice(''), 8000)
+    return () => window.clearTimeout(timer)
+  }, [focusLaunchNotice])
+
   const handleStartFocus = async () => {
-    setFocusSetup(false)
     const cfg = { reviewer: focusSetupReviewer, direction: focusSetupDir }
-    const hostWindow = await openFocusHostWindow()
-    setFocusWindow(hostWindow)
+    const launch = await openFocusHostWindow()
+    setFocusWindow(launch.hostWindow)
     setFocusConfig(cfg)
+    setFocusSetup(false)
+
+    if (launch.mode === 'pip') {
+      setFocusLaunchNotice('')
+      return
+    }
+
+    if (launch.mode === 'popup') {
+      setFocusLaunchNotice(
+        `항상 위 PiP 창을 열지 못해 일반 팝업 창으로 전환했습니다.${launch.reason ? ` 원인: ${launch.reason}` : ''}`
+      )
+      return
+    }
+
+    setFocusLaunchNotice(
+      `PiP와 일반 팝업 창을 열지 못해 현재 탭 오버레이로 전환했습니다.${launch.reason ? ` 원인: ${launch.reason}` : ''}`
+    )
   }
 
   const [rangeFrom, setRangeFrom]         = useState('')
@@ -601,6 +646,11 @@ export function WorkDayTable({ workDayId, workDate, r1Name, r2Name, editorName, 
           onExit={closeFocusMode}
         />
       ) : null}
+      {focusLaunchNotice && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 shadow-sm">
+          {focusLaunchNotice}
+        </div>
+      )}
       {/* 범위 일괄 추가 + 범위 삭제 + Excel 다운로드 */}
       <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
         {/* 범위 추가 */}
